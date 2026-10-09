@@ -1,0 +1,194 @@
+package gositter_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/dobbo-ca/gositter"
+	"github.com/dobbo-ca/gositter/grammars/json"
+)
+
+func parseJSON(t testing.TB, src string) (*gositter.Parser, gositter.Node) {
+	p := gositter.NewParser()
+	if err := p.SetLanguage(json.Language()); err != nil {
+		t.Fatal(err)
+	}
+	return p, p.Parse([]byte(src)).RootNode()
+}
+
+// The trees for these inputs were compared node for node with the C runtime
+// (oracle cmp); the strings pin them.
+func TestParseJSONString(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{`{"a": [1, true, null]}`,
+			`(document (object (pair key: (string (string_content)) value: (array (number) (true) (null)))))`},
+		{"\xef\xbb\xbf[]\n", `(document (array))`},
+		{``, `(document)`},
+		{`[1,`, `(document (ERROR (number)))`},
+		{`{"a": }`, `(document (object (pair key: (string (string_content)) value: (MISSING number))))`},
+		{`[1 2]`, `(document (array (ERROR (number)) (number)))`},
+		{"[\x00]", `(document (array (ERROR (UNEXPECTED '\0'))))`},
+	}
+	for _, tc := range cases {
+		_, root := parseJSON(t, tc.src)
+		if got := root.String(); got != tc.want {
+			t.Errorf("%q:\n got %s\nwant %s", tc.src, got, tc.want)
+		}
+	}
+}
+
+func TestNodeAPI(t *testing.T) {
+	src := `{"k": [10, "s"]}`
+	_, root := parseJSON(t, src)
+	if root.Kind() != "document" || !root.IsNamed() || root.HasError() || root.StartByte() != 0 || root.EndByte() != uint32(len(src)) {
+		t.Fatalf("root: %s %d-%d", root.Kind(), root.StartByte(), root.EndByte())
+	}
+	if !root.Parent().IsNull() {
+		t.Fatal("root has a parent")
+	}
+	obj := root.Child(0)
+	pair := obj.NamedChild(0)
+	if obj.ChildCount() != 3 || obj.NamedChildCount() != 1 || pair.Kind() != "pair" {
+		t.Fatalf("object children: %d %d %s", obj.ChildCount(), obj.NamedChildCount(), pair.Kind())
+	}
+	if !pair.Parent().Equals(obj) || !obj.Parent().Equals(root) {
+		t.Fatal("Parent")
+	}
+
+	key := pair.ChildByFieldName("key")
+	value := pair.ChildByFieldName("value")
+	if key.Utf8Text([]byte(src)) != `"k"` || value.Kind() != "array" {
+		t.Fatalf("fields: %q %s", key.Utf8Text([]byte(src)), value.Kind())
+	}
+	lang := root.Language()
+	if id := lang.FieldIDForName("value"); id == 0 || !pair.ChildByFieldID(id).Equals(value) || lang.FieldNameForID(id) != "value" {
+		t.Fatal("ChildByFieldID")
+	}
+	if !pair.ChildByFieldName("nope").IsNull() || lang.FieldIDForName("") != 0 || lang.FieldIDForName("valu") != 0 {
+		t.Fatal("unknown field")
+	}
+	if pair.FieldNameForChild(0) != "key" || pair.FieldNameForChild(1) != "" || pair.FieldNameForChild(2) != "value" {
+		t.Fatal("FieldNameForChild")
+	}
+	if p := value.StartPosition(); p != (gositter.Point{Row: 0, Column: 6}) {
+		t.Fatalf("StartPosition = %+v", p)
+	}
+	if !obj.Child(99).IsNull() || !obj.NamedChild(1).IsNull() {
+		t.Fatal("out of range child must be null")
+	}
+
+	c := pair.Walk()
+	defer c.Close()
+	got := pair.ChildrenByFieldName("value", c)
+	if len(got) != 1 || !got[0].Equals(value) {
+		t.Fatalf("ChildrenByFieldName = %v", got)
+	}
+	if len(pair.ChildrenByFieldName("nope", c)) != 0 {
+		t.Fatal("ChildrenByFieldName on an unknown field")
+	}
+
+	// A cursor walk visits the same nodes as Child.
+	c.Reset(value)
+	var kinds []string
+	for ok := c.GotoFirstChild(); ok; ok = c.GotoNextSibling() {
+		kinds = append(kinds, c.Node().Kind())
+	}
+	if strings.Join(kinds, " ") != "[ number , string ]" {
+		t.Fatalf("cursor walk = %v", kinds)
+	}
+	if !c.GotoParent() || !c.Node().Equals(value) || c.GotoParent() {
+		t.Fatal("GotoParent")
+	}
+}
+
+func TestParserReuseAndNoLanguage(t *testing.T) {
+	if gositter.NewParser().Parse([]byte("1")) != nil {
+		t.Fatal("Parse without a language must return nil")
+	}
+	p := gositter.NewParser()
+	if err := p.SetLanguage(&gositter.Language{ABIVersion: 12}); err == nil {
+		t.Fatal("ABI 12 accepted")
+	}
+	if err := p.SetLanguage(&gositter.Language{ABIVersion: 16}); err == nil {
+		t.Fatal("ABI 16 accepted")
+	}
+	if err := p.SetLanguage(json.Language()); err != nil {
+		t.Fatal(err)
+	}
+	inputs := []string{`[1, 2]`, `{"a": `, ``, `[[[[]]]]`, `[1, 2]`}
+	var first string
+	for i, in := range inputs {
+		tree := p.Parse([]byte(in))
+		s := tree.RootNode().String()
+		if i == 0 {
+			first = s
+		}
+		tree.Close()
+		if i == len(inputs)-1 && s != first {
+			t.Fatalf("same input, different tree after reuse:\n%s\n%s", first, s)
+		}
+	}
+}
+
+func TestLoggerMessages(t *testing.T) {
+	p := gositter.NewParser()
+	p.SetLanguage(json.Language())
+	var parse, lex []string
+	p.SetLogger(func(typ gositter.LogType, msg string) {
+		if typ == gositter.LogTypeLex {
+			lex = append(lex, msg)
+		} else {
+			parse = append(parse, msg)
+		}
+	})
+	p.Parse([]byte("[1]\t"))
+	if parse[0] != "new_parse" || parse[len(parse)-1] != "done" {
+		t.Fatalf("first/last: %q %q", parse[0], parse[len(parse)-1])
+	}
+	all := strings.Join(parse, "\n")
+	for _, want := range []string{
+		"process version:0, version_count:1, state:1, row:0, col:0",
+		"lexed_lookahead sym:[, size:1",
+		"shift state:",
+		"reduce sym:array, child_count:3",
+		"accept",
+	} {
+		if !strings.Contains(all, want) {
+			t.Errorf("parse log lacks %q", want)
+		}
+	}
+	lexAll := strings.Join(lex, "\n")
+	for _, want := range []string{"consume character:'['", "skip character:9"} {
+		if !strings.Contains(lexAll, want) {
+			t.Errorf("lex log lacks %q", want)
+		}
+	}
+	p.SetLogger(nil)
+	p.Parse([]byte("[1]"))
+}
+
+// A warm parser must not allocate per parse.
+func TestParseAllocs(t *testing.T) {
+	p := gositter.NewParser()
+	p.SetLanguage(json.Language())
+	src := []byte(strings.Repeat(`{"a": [1, 2.5, true, null, "x\n"], "b": {"c": []}}`+"\n", 1))
+	big := []byte("[" + strings.Repeat(`{"a": [1, 2.5, true, null, "x\n"], "b": {"c": []}},`, 500) + "0]")
+	p.Parse(big)
+	if n := testing.AllocsPerRun(20, func() { p.Parse(src) }); n != 0 {
+		t.Errorf("small parse: %v allocs, want 0", n)
+	}
+	if n := testing.AllocsPerRun(5, func() { p.Parse(big) }); n != 0 {
+		t.Errorf("big parse: %v allocs, want 0", n)
+	}
+}
+
+func BenchmarkParseJSON(b *testing.B) {
+	p := gositter.NewParser()
+	p.SetLanguage(json.Language())
+	src := []byte("[" + strings.Repeat(`{"a": [1, 2.5, true, null, "x\n"], "b": {"c": []}},`, 2000) + "0]")
+	b.SetBytes(int64(len(src)))
+	b.ReportAllocs()
+	for b.Loop() {
+		p.Parse(src)
+	}
+}

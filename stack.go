@@ -1,0 +1,834 @@
+package gositter
+
+// stack.c: the graph-structured stack. Nodes live in a slab and are
+// addressed by index; 0 is the NULL node.
+
+const (
+	maxLinkCount     = 8  // MAX_LINK_COUNT
+	maxIteratorCount = 64 // MAX_ITERATOR_COUNT
+
+	stackVersionNone = ^uint32(0) // STACK_VERSION_NONE
+)
+
+// StackLink
+type stackLink struct {
+	node      uint32
+	subtree   subtree
+	isPending bool
+}
+
+// StackNode
+type stackNode struct {
+	state             StateID
+	position          length
+	links             [maxLinkCount]stackLink
+	linkCount         uint16
+	refCount          uint32
+	errorCost         uint32
+	nodeCount         uint32
+	dynamicPrecedence int32
+}
+
+// StackIterator
+type stackIterator struct {
+	node         uint32
+	subtrees     subtreeArray
+	subtreeCount uint32
+	isPending    bool
+}
+
+// StackStatus
+const (
+	stackStatusActive uint8 = iota
+	stackStatusPaused
+	stackStatusHalted
+)
+
+// StackSummaryEntry
+type stackSummaryEntry struct {
+	position length
+	depth    uint32
+	state    StateID
+}
+
+// StackHead. summary is nil where C has NULL; a recorded summary always has
+// at least the entry for the head node.
+type stackHead struct {
+	node                 uint32
+	summary              []stackSummaryEntry
+	nodeCountAtLastError uint32
+	lastExternalToken    subtree
+	lookaheadWhenPaused  subtree
+	status               uint8
+}
+
+// StackSlice
+type stackSlice struct {
+	subtrees subtreeArray
+	version  uint32
+}
+
+// StackAction
+const (
+	stackActionNone = 0
+	stackActionStop = 1
+	stackActionPop  = 2
+)
+
+// The StackCallback functions. C passes a function pointer and a payload;
+// here iter switches on the callback id and the payload sits in the stack.
+const (
+	cbPopCount uint8 = iota
+	cbPopPending
+	cbPopError
+	cbPopAll
+	cbSummarize
+)
+
+// Stack
+type stack struct {
+	heads     []stackHead
+	slices    []stackSlice
+	iterators []stackIterator
+	nodes     []stackNode // [0] unused
+	nodePool  []uint32    // node_pool
+	baseNode  uint32
+	sp        *subtreePool
+
+	// Callback payloads.
+	goalSubtreeCount uint32                // pop_count_callback
+	foundError       bool                  // pop_error_callback
+	summary          []stackSummaryEntry   // SummarizeStackSession
+	maxDepth         uint32                // SummarizeStackSession
+	summaryPool      [][]stackSummaryEntry // freed summaries, for reuse
+}
+
+// stack_node_retain
+func (s *stack) nodeRetain(n uint32) {
+	if n == 0 {
+		return
+	}
+	s.nodes[n].refCount++
+}
+
+// stack_node_release
+func (s *stack) nodeRelease(self uint32) {
+	for {
+		n := &s.nodes[self]
+		n.refCount--
+		if n.refCount > 0 {
+			return
+		}
+
+		firstPredecessor := uint32(0)
+		if n.linkCount > 0 {
+			for i := uint32(n.linkCount) - 1; i > 0; i-- {
+				link := n.links[i]
+				if link.subtree != nullSubtree {
+					s.sp.release(link.subtree)
+				}
+				s.nodeRelease(link.node)
+			}
+			link := n.links[0]
+			if link.subtree != nullSubtree {
+				s.sp.release(link.subtree)
+			}
+			firstPredecessor = link.node
+		}
+
+		// C keeps at most MAX_NODE_POOL_SIZE nodes and frees the rest.
+		s.nodePool = append(s.nodePool, self)
+
+		if firstPredecessor == 0 {
+			return
+		}
+		self = firstPredecessor
+	}
+}
+
+// stack__subtree_node_count
+func (s *stack) subtreeNodeCount(t subtree) uint32 {
+	count := s.sp.visibleDescendantCount(t)
+	if s.sp.visible(t) {
+		count++
+	}
+
+	// Count intermediate error nodes even though they are not visible: the
+	// node count measures progress since the last error.
+	if s.sp.symbol(t) == SymbolErrorRepeat {
+		count++
+	}
+
+	return count
+}
+
+// stack_node_new
+func (s *stack) nodeNew(previousNode uint32, t subtree, isPending bool, state StateID) uint32 {
+	var i uint32
+	if n := len(s.nodePool); n > 0 {
+		i = s.nodePool[n-1]
+		s.nodePool = s.nodePool[:n-1]
+	} else {
+		s.nodes = append(s.nodes, stackNode{})
+		i = uint32(len(s.nodes) - 1)
+	}
+	node := &s.nodes[i]
+	node.refCount = 1
+	node.state = state
+
+	// C zeroes the whole node. Only links[0] is ever read past linkCount (by
+	// errorCost), so the other seven links keep their stale contents.
+	if previousNode == 0 {
+		node.linkCount = 0
+		node.links[0] = stackLink{}
+		node.position = length{}
+		node.errorCost = 0
+		node.dynamicPrecedence = 0
+		node.nodeCount = 0
+	} else {
+		prev := &s.nodes[previousNode]
+		node.linkCount = 1
+		node.links[0] = stackLink{node: previousNode, subtree: t, isPending: isPending}
+
+		node.position = prev.position
+		node.errorCost = prev.errorCost
+		node.dynamicPrecedence = prev.dynamicPrecedence
+		node.nodeCount = prev.nodeCount
+
+		if t != nullSubtree {
+			node.errorCost += s.sp.errorCost(t)
+			node.position = lengthAdd(node.position, s.sp.totalSize(t))
+			node.nodeCount += s.subtreeNodeCount(t)
+			node.dynamicPrecedence += s.sp.dynamicPrecedence(t)
+		}
+	}
+
+	return i
+}
+
+// stack__subtree_is_equivalent
+func (s *stack) subtreeIsEquivalent(left, right subtree) bool {
+	sp := s.sp
+	if left == right {
+		return true
+	}
+	if left == nullSubtree || right == nullSubtree {
+		return false
+	}
+
+	// Symbols must match.
+	if sp.symbol(left) != sp.symbol(right) {
+		return false
+	}
+
+	// If both have errors, don't bother keeping both.
+	if sp.errorCost(left) > 0 && sp.errorCost(right) > 0 {
+		return true
+	}
+
+	return sp.padding(left).bytes == sp.padding(right).bytes &&
+		sp.size(left).bytes == sp.size(right).bytes &&
+		sp.childCount(left) == sp.childCount(right) &&
+		sp.extra(left) == sp.extra(right) &&
+		sp.externalScannerStateEq(left, right)
+}
+
+// stack_node_add_link. Allocates no node, so pointers into s.nodes hold.
+func (s *stack) nodeAddLink(self uint32, link stackLink) {
+	if link.node == self {
+		return
+	}
+	sp := s.sp
+	n := &s.nodes[self]
+	linkNode := &s.nodes[link.node]
+
+	for i := 0; i < int(n.linkCount); i++ {
+		existingLink := &n.links[i]
+		if s.subtreeIsEquivalent(existingLink.subtree, link.subtree) {
+			// Two links between the same pair of nodes: the ambiguity can be
+			// removed ahead of time.
+			if existingLink.node == link.node {
+				if sp.dynamicPrecedence(link.subtree) > sp.dynamicPrecedence(existingLink.subtree) {
+					sp.retain(link.subtree)
+					sp.release(existingLink.subtree)
+					existingLink.subtree = link.subtree
+					n.dynamicPrecedence = linkNode.dynamicPrecedence + sp.dynamicPrecedence(link.subtree)
+				}
+				return
+			}
+
+			// If the previous nodes are mergeable, merge them recursively.
+			existingNode := &s.nodes[existingLink.node]
+			if existingNode.state == linkNode.state &&
+				existingNode.position.bytes == linkNode.position.bytes &&
+				existingNode.errorCost == linkNode.errorCost {
+				for j := 0; j < int(linkNode.linkCount); j++ {
+					s.nodeAddLink(existingLink.node, linkNode.links[j])
+				}
+				dynamicPrecedence := linkNode.dynamicPrecedence
+				if link.subtree != nullSubtree {
+					dynamicPrecedence += sp.dynamicPrecedence(link.subtree)
+				}
+				if dynamicPrecedence > n.dynamicPrecedence {
+					n.dynamicPrecedence = dynamicPrecedence
+				}
+				return
+			}
+		}
+	}
+
+	if n.linkCount == maxLinkCount {
+		return
+	}
+
+	s.nodeRetain(link.node)
+	nodeCount := linkNode.nodeCount
+	dynamicPrecedence := linkNode.dynamicPrecedence
+	n.links[n.linkCount] = link
+	n.linkCount++
+
+	if link.subtree != nullSubtree {
+		sp.retain(link.subtree)
+		nodeCount += s.subtreeNodeCount(link.subtree)
+		dynamicPrecedence += sp.dynamicPrecedence(link.subtree)
+	}
+
+	if nodeCount > n.nodeCount {
+		n.nodeCount = nodeCount
+	}
+	if dynamicPrecedence > n.dynamicPrecedence {
+		n.dynamicPrecedence = dynamicPrecedence
+	}
+}
+
+func (s *stack) summaryFree(summary []stackSummaryEntry) {
+	if summary != nil {
+		s.summaryPool = append(s.summaryPool, summary[:0])
+	}
+}
+
+// stack_head_delete
+func (s *stack) headDelete(h *stackHead) {
+	if h.node != 0 {
+		if h.lastExternalToken != nullSubtree {
+			s.sp.release(h.lastExternalToken)
+		}
+		if h.lookaheadWhenPaused != nullSubtree {
+			s.sp.release(h.lookaheadWhenPaused)
+		}
+		s.summaryFree(h.summary)
+		h.summary = nil
+		s.nodeRelease(h.node)
+	}
+}
+
+// ts_stack__add_version
+func (s *stack) addVersion(originalVersion uint32, node uint32) uint32 {
+	head := stackHead{
+		node:                 node,
+		nodeCountAtLastError: s.heads[originalVersion].nodeCountAtLastError,
+		lastExternalToken:    s.heads[originalVersion].lastExternalToken,
+		status:               stackStatusActive,
+		lookaheadWhenPaused:  nullSubtree,
+	}
+	s.heads = append(s.heads, head)
+	s.nodeRetain(node)
+	if head.lastExternalToken != nullSubtree {
+		s.sp.retain(head.lastExternalToken)
+	}
+	return uint32(len(s.heads) - 1)
+}
+
+// ts_stack__add_slice
+func (s *stack) addSlice(originalVersion uint32, node uint32, subtrees subtreeArray) {
+	for i := len(s.slices) - 1; i >= 0; i-- {
+		version := s.slices[i].version
+		if s.heads[version].node == node {
+			s.slices = append(s.slices, stackSlice{})
+			copy(s.slices[i+2:], s.slices[i+1:])
+			s.slices[i+1] = stackSlice{subtrees, version}
+			return
+		}
+	}
+
+	version := s.addVersion(originalVersion, node)
+	s.slices = append(s.slices, stackSlice{subtrees, version})
+}
+
+// The five StackCallback functions.
+func (s *stack) callback(cb uint8, iterator *stackIterator) uint32 {
+	switch cb {
+	case cbPopCount: // pop_count_callback
+		if iterator.subtreeCount == s.goalSubtreeCount {
+			return stackActionPop | stackActionStop
+		}
+		return stackActionNone
+
+	case cbPopPending: // pop_pending_callback
+		if iterator.subtreeCount >= 1 {
+			if iterator.isPending {
+				return stackActionPop | stackActionStop
+			}
+			return stackActionStop
+		}
+		return stackActionNone
+
+	case cbPopError: // pop_error_callback
+		if iterator.subtrees.size > 0 {
+			if !s.foundError && s.sp.isError(s.sp.children[iterator.subtrees.off]) {
+				s.foundError = true
+				return stackActionPop | stackActionStop
+			}
+			return stackActionStop
+		}
+		return stackActionNone
+
+	case cbPopAll: // pop_all_callback
+		if s.nodes[iterator.node].linkCount == 0 {
+			return stackActionPop
+		}
+		return stackActionNone
+
+	default: // summarize_stack_callback
+		node := &s.nodes[iterator.node]
+		state := node.state
+		depth := iterator.subtreeCount
+		if depth > s.maxDepth {
+			return stackActionStop
+		}
+		for i := len(s.summary) - 1; i >= 0; i-- {
+			entry := s.summary[i]
+			if entry.depth < depth {
+				break
+			}
+			if entry.depth == depth && entry.state == state {
+				return stackActionNone
+			}
+		}
+		s.summary = append(s.summary, stackSummaryEntry{
+			position: node.position,
+			depth:    depth,
+			state:    state,
+		})
+		return stackActionNone
+	}
+}
+
+// stack__iter. The returned slice is s.slices and is overwritten by the next
+// call, as in C.
+func (s *stack) iter(version uint32, cb uint8, goalSubtreeCount int) []stackSlice {
+	sp := s.sp
+	s.slices = s.slices[:0]
+	s.iterators = s.iterators[:0]
+
+	newIterator := stackIterator{
+		node:      s.heads[version].node,
+		isPending: true,
+	}
+
+	includeSubtrees := false
+	if goalSubtreeCount >= 0 {
+		includeSubtrees = true
+		// C reserves room for the node's heap data too. That lives in
+		// another slab here, and a region at the end of the children slab
+		// grows in place, so the goal count is enough.
+		sp.arrayReserve(&newIterator.subtrees, uint32(goalSubtreeCount))
+	}
+
+	s.iterators = append(s.iterators, newIterator)
+
+	// The common pop: one iterator walking an unbranched chain. Each turn is
+	// one turn of the general loop below with no action and one link.
+	if cb == cbPopCount {
+		it := &s.iterators[0]
+		for it.subtreeCount != s.goalSubtreeCount {
+			node := &s.nodes[it.node]
+			if node.linkCount != 1 {
+				break
+			}
+			link := node.links[0]
+			it.node = link.node
+			if link.subtree != nullSubtree {
+				sp.arrayPush(&it.subtrees, link.subtree)
+				sp.retain(link.subtree)
+				if !sp.extra(link.subtree) {
+					it.subtreeCount++
+					if !link.isPending {
+						it.isPending = false
+					}
+				}
+			} else {
+				it.subtreeCount++
+				it.isPending = false
+			}
+		}
+	}
+
+	for len(s.iterators) > 0 {
+		for i, size := 0, len(s.iterators); i < size; i++ {
+			iterator := &s.iterators[i]
+			nodeIndex := iterator.node
+			node := &s.nodes[nodeIndex]
+
+			action := s.callback(cb, iterator)
+			shouldPop := action&stackActionPop != 0
+			shouldStop := action&stackActionStop != 0 || node.linkCount == 0
+
+			if shouldPop {
+				subtrees := iterator.subtrees
+				if !shouldStop {
+					subtrees = sp.arrayCopy(subtrees)
+				}
+				subtreeSliceReverse(sp.array(subtrees))
+				s.addSlice(version, nodeIndex, subtrees)
+			}
+
+			if shouldStop {
+				if !shouldPop {
+					sp.arrayDelete(&iterator.subtrees)
+				}
+				s.iterators = append(s.iterators[:i], s.iterators[i+1:]...)
+				i--
+				size--
+				continue
+			}
+
+			for j := uint16(1); j <= node.linkCount; j++ {
+				var nextIterator *stackIterator
+				var link stackLink
+				if j == node.linkCount {
+					link = node.links[0]
+					nextIterator = &s.iterators[i]
+				} else {
+					if len(s.iterators) >= maxIteratorCount {
+						continue
+					}
+					link = node.links[j]
+					s.iterators = append(s.iterators, s.iterators[i])
+					nextIterator = &s.iterators[len(s.iterators)-1]
+					nextIterator.subtrees = sp.arrayCopy(nextIterator.subtrees)
+				}
+
+				nextIterator.node = link.node
+				if link.subtree != nullSubtree {
+					if includeSubtrees {
+						sp.arrayPush(&nextIterator.subtrees, link.subtree)
+						sp.retain(link.subtree)
+					}
+
+					if !sp.extra(link.subtree) {
+						nextIterator.subtreeCount++
+						if !link.isPending {
+							nextIterator.isPending = false
+						}
+					}
+				} else {
+					nextIterator.subtreeCount++
+					nextIterator.isPending = false
+				}
+			}
+		}
+	}
+
+	return s.slices
+}
+
+// ts_stack_new, minus the allocations.
+func (s *stack) init(sp *subtreePool) {
+	s.sp = sp
+	s.reset()
+}
+
+// Start of a parse: drop every node and head without walking them. The
+// subtree slabs are reset at the same time, so no release is owed.
+func (s *stack) reset() {
+	for i := range s.heads {
+		s.summaryFree(s.heads[i].summary)
+		s.heads[i].summary = nil
+	}
+	s.heads = s.heads[:0]
+	s.slices = s.slices[:0]
+	s.iterators = s.iterators[:0]
+	if cap(s.nodes) == 0 {
+		s.nodes = make([]stackNode, 1, 64)
+	}
+	s.nodes = s.nodes[:1]
+	s.nodePool = s.nodePool[:0]
+	s.baseNode = s.nodeNew(0, nullSubtree, false, 1)
+	s.clear()
+}
+
+// ts_stack_version_count
+func (s *stack) versionCount() uint32 {
+	return uint32(len(s.heads))
+}
+
+// ts_stack_state
+func (s *stack) state(version uint32) StateID {
+	return s.nodes[s.heads[version].node].state
+}
+
+// ts_stack_position
+func (s *stack) position(version uint32) length {
+	return s.nodes[s.heads[version].node].position
+}
+
+// ts_stack_last_external_token
+func (s *stack) lastExternalToken(version uint32) subtree {
+	return s.heads[version].lastExternalToken
+}
+
+// ts_stack_set_last_external_token
+func (s *stack) setLastExternalToken(version uint32, token subtree) {
+	head := &s.heads[version]
+	if token != nullSubtree {
+		s.sp.retain(token)
+	}
+	if head.lastExternalToken != nullSubtree {
+		s.sp.release(head.lastExternalToken)
+	}
+	head.lastExternalToken = token
+}
+
+// ts_stack_error_cost
+func (s *stack) errorCost(version uint32) uint32 {
+	head := &s.heads[version]
+	node := &s.nodes[head.node]
+	result := node.errorCost
+	if head.status == stackStatusPaused ||
+		(node.state == errorState && node.links[0].subtree == nullSubtree) {
+		result += errorCostPerRecovery
+	}
+	return result
+}
+
+// ts_stack_node_count_since_error
+func (s *stack) nodeCountSinceError(version uint32) uint32 {
+	head := &s.heads[version]
+	nodeCount := s.nodes[head.node].nodeCount
+	if nodeCount < head.nodeCountAtLastError {
+		head.nodeCountAtLastError = nodeCount
+	}
+	return nodeCount - head.nodeCountAtLastError
+}
+
+// ts_stack_push
+func (s *stack) push(version uint32, t subtree, pending bool, state StateID) {
+	newNode := s.nodeNew(s.heads[version].node, t, pending, state)
+	head := &s.heads[version]
+	if t == nullSubtree {
+		head.nodeCountAtLastError = s.nodes[newNode].nodeCount
+	}
+	head.node = newNode
+}
+
+// ts_stack_pop_count
+func (s *stack) popCount(version uint32, count uint32) []stackSlice {
+	s.goalSubtreeCount = count
+	return s.iter(version, cbPopCount, int(count))
+}
+
+// ts_stack_pop_pending
+func (s *stack) popPending(version uint32) []stackSlice {
+	pop := s.iter(version, cbPopPending, 0)
+	if len(pop) > 0 {
+		s.renumberVersion(pop[0].version, version)
+		pop[0].version = version
+	}
+	return pop
+}
+
+// ts_stack_pop_error
+func (s *stack) popError(version uint32) subtreeArray {
+	node := &s.nodes[s.heads[version].node]
+	for i := 0; i < int(node.linkCount); i++ {
+		if node.links[i].subtree != nullSubtree && s.sp.isError(node.links[i].subtree) {
+			s.foundError = false
+			pop := s.iter(version, cbPopError, 1)
+			if len(pop) > 0 {
+				s.renumberVersion(pop[0].version, version)
+				return pop[0].subtrees
+			}
+			break
+		}
+	}
+	return subtreeArray{}
+}
+
+// ts_stack_pop_all
+func (s *stack) popAll(version uint32) []stackSlice {
+	return s.iter(version, cbPopAll, 0)
+}
+
+// ts_stack_record_summary
+func (s *stack) recordSummary(version uint32, maxDepth uint32) {
+	s.summary = nil
+	if n := len(s.summaryPool); n > 0 {
+		s.summary = s.summaryPool[n-1]
+		s.summaryPool = s.summaryPool[:n-1]
+	}
+	s.maxDepth = maxDepth
+	s.iter(version, cbSummarize, -1)
+	head := &s.heads[version]
+	s.summaryFree(head.summary)
+	head.summary = s.summary
+	s.summary = nil
+}
+
+// ts_stack_get_summary
+func (s *stack) getSummary(version uint32) []stackSummaryEntry {
+	return s.heads[version].summary
+}
+
+// ts_stack_dynamic_precedence
+func (s *stack) dynamicPrecedence(version uint32) int32 {
+	return s.nodes[s.heads[version].node].dynamicPrecedence
+}
+
+// ts_stack_has_advanced_since_error
+func (s *stack) hasAdvancedSinceError(version uint32) bool {
+	head := &s.heads[version]
+	node := &s.nodes[head.node]
+	if node.errorCost == 0 {
+		return true
+	}
+	for {
+		if node.linkCount > 0 {
+			t := node.links[0].subtree
+			if t != nullSubtree {
+				if s.sp.totalBytes(t) > 0 {
+					return true
+				} else if node.nodeCount > head.nodeCountAtLastError && s.sp.errorCost(t) == 0 {
+					next := node.links[0].node
+					if next == 0 {
+						break
+					}
+					node = &s.nodes[next]
+					continue
+				}
+			}
+		}
+		break
+	}
+	return false
+}
+
+// ts_stack_remove_version
+func (s *stack) removeVersion(version uint32) {
+	s.headDelete(&s.heads[version])
+	s.heads = append(s.heads[:version], s.heads[version+1:]...)
+}
+
+// ts_stack_renumber_version
+func (s *stack) renumberVersion(v1, v2 uint32) {
+	if v1 == v2 {
+		return
+	}
+	sourceHead := &s.heads[v1]
+	targetHead := &s.heads[v2]
+	if targetHead.summary != nil && sourceHead.summary == nil {
+		sourceHead.summary = targetHead.summary
+		targetHead.summary = nil
+	}
+	s.headDelete(targetHead)
+	*targetHead = *sourceHead
+	s.heads = append(s.heads[:v1], s.heads[v1+1:]...)
+}
+
+// ts_stack_swap_versions
+func (s *stack) swapVersions(v1, v2 uint32) {
+	s.heads[v1], s.heads[v2] = s.heads[v2], s.heads[v1]
+}
+
+// ts_stack_copy_version
+func (s *stack) copyVersion(version uint32) uint32 {
+	s.heads = append(s.heads, s.heads[version])
+	head := &s.heads[len(s.heads)-1]
+	s.nodeRetain(head.node)
+	if head.lastExternalToken != nullSubtree {
+		s.sp.retain(head.lastExternalToken)
+	}
+	head.summary = nil
+	return uint32(len(s.heads) - 1)
+}
+
+// ts_stack_merge
+func (s *stack) merge(version1, version2 uint32) bool {
+	if !s.canMerge(version1, version2) {
+		return false
+	}
+	head1 := &s.heads[version1]
+	head2 := &s.heads[version2]
+	node2 := &s.nodes[head2.node]
+	for i := 0; i < int(node2.linkCount); i++ {
+		s.nodeAddLink(head1.node, node2.links[i])
+	}
+	if node1 := &s.nodes[head1.node]; node1.state == errorState {
+		head1.nodeCountAtLastError = node1.nodeCount
+	}
+	s.removeVersion(version2)
+	return true
+}
+
+// ts_stack_can_merge
+func (s *stack) canMerge(version1, version2 uint32) bool {
+	head1 := &s.heads[version1]
+	head2 := &s.heads[version2]
+	node1 := &s.nodes[head1.node]
+	node2 := &s.nodes[head2.node]
+	return head1.status == stackStatusActive &&
+		head2.status == stackStatusActive &&
+		node1.state == node2.state &&
+		node1.position.bytes == node2.position.bytes &&
+		node1.errorCost == node2.errorCost &&
+		s.sp.externalScannerStateEq(head1.lastExternalToken, head2.lastExternalToken)
+}
+
+// ts_stack_halt
+func (s *stack) halt(version uint32) {
+	s.heads[version].status = stackStatusHalted
+}
+
+// ts_stack_pause
+func (s *stack) pause(version uint32, lookahead subtree) {
+	head := &s.heads[version]
+	head.status = stackStatusPaused
+	head.lookaheadWhenPaused = lookahead
+	head.nodeCountAtLastError = s.nodes[head.node].nodeCount
+}
+
+// ts_stack_is_active
+func (s *stack) isActive(version uint32) bool {
+	return s.heads[version].status == stackStatusActive
+}
+
+// ts_stack_is_halted
+func (s *stack) isHalted(version uint32) bool {
+	return s.heads[version].status == stackStatusHalted
+}
+
+// ts_stack_is_paused
+func (s *stack) isPaused(version uint32) bool {
+	return s.heads[version].status == stackStatusPaused
+}
+
+// ts_stack_resume
+func (s *stack) resume(version uint32) subtree {
+	head := &s.heads[version]
+	result := head.lookaheadWhenPaused
+	head.status = stackStatusActive
+	head.lookaheadWhenPaused = nullSubtree
+	return result
+}
+
+// ts_stack_clear
+func (s *stack) clear() {
+	s.nodeRetain(s.baseNode)
+	for i := range s.heads {
+		s.headDelete(&s.heads[i])
+	}
+	s.heads = append(s.heads[:0], stackHead{
+		node:   s.baseNode,
+		status: stackStatusActive,
+	})
+}
