@@ -3,6 +3,7 @@ package gositter
 import (
 	"bytes"
 	"errors"
+	"math"
 	"strconv"
 )
 
@@ -492,9 +493,18 @@ func (p *Parser) lex(version uint32, parseState StateID) subtree {
 			// ts_external_scanner_state_init
 			state := p.scannerBuf[:externalScannerStateLen]
 			h := sp.ptr(result)
-			h.extOff = uint32(len(sp.ext))
-			h.extLen = externalScannerStateLen
-			sp.ext = append(sp.ext, state...)
+			if prev := sp.externalScannerState(externalToken); !externalScannerStateChanged && len(prev) > 0 {
+				// Same bytes as the previous token's state: share them.
+				ph := sp.ptr(externalToken)
+				h.extOff, h.extLen = ph.extOff, ph.extLen
+			} else {
+				if len(sp.ext)+len(state) > math.MaxUint32 {
+					panic(errSlabFull)
+				}
+				h.extOff = uint32(len(sp.ext))
+				h.extLen = externalScannerStateLen
+				sp.ext = append(sp.ext, state...)
+			}
 			// In C the state shares a union with the node fields, and
 			// ts_subtree_repeat_depth reads repeat_depth from it unchecked:
 			// bytes 16 and 17 of a state that is stored inline (at most 24
@@ -629,9 +639,8 @@ func (p *Parser) selectTree(left, right subtree) bool {
 func (p *Parser) selectChildren(left subtree, children subtreeArray) bool {
 	sp := &p.pool
 	mark := len(sp.children)
-	scratch := subtreeArray{}
-	sp.arrayReserve(&scratch, children.size)
-	scratch.size = children.size
+	scratch := subtreeArray{size: children.size, cap: children.size}
+	scratch.off = sp.bumpChildren(children.size)
 	copy(sp.array(scratch), sp.array(children))
 
 	scratchTree := sp.newNode(sp.symbol(left), &scratch, 0, p.language)
@@ -1718,7 +1727,7 @@ func (p *Parser) Parse(src []byte) *Tree {
 
 	// ts_tree_new. The root gets a slot in the children slab so that a Node
 	// can address it like any other subtree.
-	root := p.pool.allocChildren(1)
+	root := p.pool.bumpChildren(1)
 	p.pool.children[root] = p.finishedTree
 	p.tree = Tree{pool: &p.pool, language: p.language, root: root}
 	p.finishedTree = nullSubtree

@@ -2,6 +2,8 @@ package gositter
 
 import (
 	"bytes"
+	"math"
+	"math/bits"
 	"strconv"
 )
 
@@ -85,6 +87,7 @@ type subtreeHeap struct {
 	productionID           uint16
 	firstLeafSymbol        Symbol
 	firstLeafParseState    StateID
+	childClass             uint8 // size class of the children block
 	visibleChildCount      uint32
 	namedChildCount        uint32
 	visibleDescendantCount uint32
@@ -104,23 +107,63 @@ type subtreeArray struct {
 	off, size, cap uint32
 }
 
+// The heap data slab is a list of chunks: it grows without a copy, so a deep
+// tree leaves no outgrown slabs behind for the GC.
+const (
+	heapChunkBits = 11
+	heapChunkMask = 1<<heapChunkBits - 1
+)
+
+type heapChunk [1 << heapChunkBits]subtreeHeap
+
 // SubtreePool, and the arenas behind every subtree of one parser. Slabs are
 // reset, not freed, between parses.
 type subtreePool struct {
-	heap      []subtreeHeap // [0] unused
-	freeTrees []uint32      // free_trees
-	children  []subtree     // [0] unused
-	ext       []byte        // external scanner states
-	treeStack []subtree     // tree_stack
+	heap      []*heapChunk // entry [0] unused
+	heapLen   uint32       // entries handed out, [0] included
+	freeTrees []uint32     // free_trees
+	children  []subtree    // [0] unused
+	ext       []byte       // external scanner states
+	treeStack []subtree    // tree_stack
+
+	// Heads of the free children blocks, by size class. The first entry of a
+	// free block holds the offset of the next one.
+	freeBlocks [childClassCount]uint32
+}
+
+// Children blocks come in size classes, so a freed block serves the next
+// request of its class: one class per size up to 64, then four per doubling
+// (an error node that grows by one child keeps reusing two blocks).
+const (
+	exactChildClasses = 64
+	childClassCount   = 165
+)
+
+// Offsets and indexes into the slabs are 32 bits.
+const errSlabFull = "gositter: input needs a parser slab of more than 2^32 entries"
+
+// childClass returns the class of the smallest block that holds n entries,
+// and the size of that block.
+func childClass(n uint32) (class, size uint32) {
+	if n <= exactChildClasses {
+		return n, n
+	}
+	if n > 1<<31 {
+		panic(errSlabFull)
+	}
+	shift := uint32(bits.Len32(n-1)) - 3
+	m := (n-1)>>shift + 1 // 5 to 8
+	return shift*4 + m + 44, m << shift
 }
 
 func (sp *subtreePool) reset() {
-	if cap(sp.heap) == 0 {
-		sp.heap = make([]subtreeHeap, 1, 1024)
+	if cap(sp.children) == 0 {
+		sp.heap = []*heapChunk{new(heapChunk)}
 		sp.children = make([]subtree, 1, 4096)
 	}
-	sp.heap = sp.heap[:1]
+	sp.heapLen = 1
 	sp.children = sp.children[:1]
+	sp.freeBlocks = [childClassCount]uint32{}
 	sp.freeTrees = sp.freeTrees[:0]
 	sp.ext = sp.ext[:0]
 	sp.treeStack = sp.treeStack[:0]
@@ -128,7 +171,9 @@ func (sp *subtreePool) reset() {
 
 func (s subtree) isInline() bool { return s&inlIsInline != 0 }
 
-func (sp *subtreePool) ptr(s subtree) *subtreeHeap { return &sp.heap[s>>1] }
+func (sp *subtreePool) ptr(s subtree) *subtreeHeap {
+	return &sp.heap[s>>(1+heapChunkBits)][s>>1&heapChunkMask]
+}
 
 // ts_subtree_pool_allocate
 func (sp *subtreePool) allocate() uint32 {
@@ -138,16 +183,16 @@ func (sp *subtreePool) allocate() uint32 {
 		return i
 	}
 	// Every caller overwrites the whole entry, so a reused slot is not
-	// zeroed. The slab doubles: append would grow a large one by a quarter
-	// and copy it four times as often.
-	n := len(sp.heap)
-	if n == cap(sp.heap) {
-		grown := make([]subtreeHeap, n, 2*n)
-		copy(grown, sp.heap)
-		sp.heap = grown
+	// zeroed.
+	n := sp.heapLen
+	if n>>heapChunkBits == uint32(len(sp.heap)) {
+		if n == math.MaxUint32&^heapChunkMask { // the last chunk would wrap heapLen
+			panic(errSlabFull)
+		}
+		sp.heap = append(sp.heap, new(heapChunk))
 	}
-	sp.heap = sp.heap[:n+1]
-	return uint32(n)
+	sp.heapLen = n + 1
+	return n
 }
 
 // ts_subtree_pool_free. C caps the pool at TS_MAX_TREE_POOL_SIZE and frees
@@ -182,16 +227,40 @@ func (sp *subtreePool) array(a subtreeArray) []subtree {
 }
 
 // Bump allocation of n slots at the end of the children slab.
-func (sp *subtreePool) allocChildren(n uint32) uint32 {
+func (sp *subtreePool) bumpChildren(n uint32) uint32 {
 	off := len(sp.children)
 	need := off + int(n)
 	if need > cap(sp.children) {
-		grown := make([]subtree, off, max(2*cap(sp.children), need))
-		copy(grown, sp.children)
-		sp.children = grown
+		sp.growChildren(need)
 	}
 	sp.children = sp.children[:need]
 	return uint32(off)
+}
+
+func (sp *subtreePool) growChildren(need int) {
+	if need > math.MaxUint32 {
+		panic(errSlabFull)
+	}
+	grown := make([]subtree, len(sp.children), max(2*cap(sp.children), need))
+	copy(grown, sp.children)
+	sp.children = grown
+}
+
+// A block for n > 0 entries: a free one of that class, else new at the end
+// of the slab. C calls malloc here.
+func (sp *subtreePool) allocChildren(n uint32) (off, size uint32) {
+	class, size := childClass(n)
+	if off = sp.freeBlocks[class]; off != 0 {
+		sp.freeBlocks[class] = uint32(sp.children[off])
+		return off, size
+	}
+	return sp.bumpChildren(size), size
+}
+
+// Gives back a block that is not at the end of the slab. C calls free here.
+func (sp *subtreePool) freeChildren(off, class uint32) {
+	sp.children[off] = subtree(sp.freeBlocks[class])
+	sp.freeBlocks[class] = off
 }
 
 // array_reserve. A region at the end of the slab grows in place.
@@ -200,12 +269,17 @@ func (sp *subtreePool) arrayReserve(a *subtreeArray, newCap uint32) {
 		return
 	}
 	if a.cap > 0 && a.off+a.cap == uint32(len(sp.children)) {
-		sp.allocChildren(newCap - a.cap)
+		_, newCap = childClass(newCap)
+		sp.bumpChildren(newCap - a.cap)
 		a.cap = newCap
 		return
 	}
-	off := sp.allocChildren(newCap)
+	off, newCap := sp.allocChildren(newCap)
 	copy(sp.children[off:off+a.size], sp.children[a.off:a.off+a.size])
+	if a.cap > 0 {
+		class, _ := childClass(a.cap)
+		sp.freeChildren(a.off, class)
+	}
 	a.off, a.cap = off, newCap
 }
 
@@ -241,11 +315,15 @@ func (sp *subtreePool) arraySplice(a *subtreeArray, index, oldCount uint32, elem
 	a.size = newSize
 }
 
-// array_delete for a region. Only a region at the end of the slab gives its
-// memory back; the rest waits for the next parse.
+// array_delete for a region.
 func (sp *subtreePool) arrayFree(a *subtreeArray) {
-	if a.cap > 0 && a.off+a.cap == uint32(len(sp.children)) {
-		sp.children = sp.children[:a.off]
+	if a.cap > 0 {
+		if a.off+a.cap == uint32(len(sp.children)) {
+			sp.children = sp.children[:a.off]
+		} else {
+			class, _ := childClass(a.cap)
+			sp.freeChildren(a.off, class)
+		}
 	}
 	*a = subtreeArray{}
 }
@@ -254,7 +332,7 @@ func (sp *subtreePool) arrayFree(a *subtreeArray) {
 func (sp *subtreePool) arrayCopy(self subtreeArray) subtreeArray {
 	dest := self
 	if self.cap > 0 {
-		dest.off = sp.allocChildren(self.cap)
+		dest.off, dest.cap = sp.allocChildren(self.cap)
 		copy(sp.children[dest.off:dest.off+self.size], sp.children[self.off:self.off+self.size])
 		for _, s := range sp.array(dest) {
 			sp.retain(s)
@@ -621,7 +699,7 @@ func (sp *subtreePool) newLeaf(
 		flags |= fIsKeyword
 	}
 	i := sp.allocate()
-	sp.heap[i] = subtreeHeap{
+	*sp.ptr(subtree(i) << 1) = subtreeHeap{
 		refCount:       1,
 		padding:        padding,
 		size:           size,
@@ -670,13 +748,15 @@ func (sp *subtreePool) newError(
 // ts_subtree_clone
 func (sp *subtreePool) clone(s subtree) subtree {
 	i := sp.allocate()
-	sp.heap[i] = *sp.ptr(s)
-	h := &sp.heap[i]
+	h := sp.ptr(subtree(i) << 1)
+	*h = *sp.ptr(s)
 	if h.childCount > 0 {
 		old := h.children
-		off := sp.allocChildren(h.childCount)
+		off, _ := sp.allocChildren(h.childCount)
 		copy(sp.children[off:off+h.childCount], sp.children[old:old+h.childCount])
 		h.children = off
+		class, _ := childClass(h.childCount)
+		h.childClass = uint8(class)
 		for _, child := range sp.children[off : off+h.childCount] {
 			sp.retain(child)
 		}
@@ -802,7 +882,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 			childVisible = child&inlVisible != 0
 			childNamed = child&inlNamed != 0
 		} else {
-			ch := &heap[child>>1]
+			ch := &heap[child>>(1+heapChunkBits)][child>>1&heapChunkMask]
 			cf := ch.flags
 			if size.extent.Row == 0 && cf&fDependsOnColumn != 0 {
 				flags |= fDependsOnColumn
@@ -929,14 +1009,25 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 
 // ts_subtree_new_node. Takes ownership of the children region. C puts the
 // node's heap data behind the children in the same allocation; here the
-// region becomes the node's children as it is and unused capacity at the end
-// of the slab is given back.
+// region becomes the node's children block. At the end of the slab it is cut
+// to the class of its size; elsewhere it keeps its capacity, as in C.
 func (sp *subtreePool) newNode(symbol Symbol, children *subtreeArray, productionID uint32, lang *Language) subtree {
 	metadata := lang.symbolMetadata(symbol)
 	fragile := symbol == SymbolError || symbol == SymbolErrorRepeat
 
-	if children.cap > 0 && children.off+children.cap == uint32(len(sp.children)) {
-		sp.children = sp.children[:children.off+children.size]
+	var class uint32
+	if children.size == 0 {
+		sp.arrayFree(children)
+	} else if children.off+children.cap == uint32(len(sp.children)) {
+		var size uint32
+		class, size = childClass(children.size)
+		if size <= children.cap {
+			sp.children = sp.children[:children.off+size]
+		} else {
+			sp.bumpChildren(size - children.cap)
+		}
+	} else {
+		class, _ = childClass(children.cap)
 	}
 
 	var flags uint16
@@ -950,13 +1041,14 @@ func (sp *subtreePool) newNode(symbol Symbol, children *subtreeArray, production
 		flags |= fFragileLeft | fFragileRight
 	}
 	i := sp.allocate()
-	sp.heap[i] = subtreeHeap{
+	*sp.ptr(subtree(i) << 1) = subtreeHeap{
 		refCount:     1,
 		symbol:       symbol,
 		childCount:   children.size,
 		flags:        flags,
 		productionID: uint16(productionID),
 		children:     children.off,
+		childClass:   uint8(class),
 	}
 	result := subtree(i) << 1
 	sp.summarizeChildren(result, lang)
@@ -1017,9 +1109,10 @@ func (sp *subtreePool) release(s subtree) {
 					sp.treeStack = append(sp.treeStack, child)
 				}
 			}
+			sp.freeChildren(th.children, uint32(th.childClass))
 		}
 		// C frees the children block (which holds a parent's heap data) or
-		// returns a leaf to the pool. The children region stays in the slab.
+		// returns a leaf to the pool.
 		sp.free(uint32(tree >> 1))
 	}
 }

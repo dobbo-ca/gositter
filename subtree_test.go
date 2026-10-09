@@ -1,6 +1,9 @@
 package gositter
 
-import "testing"
+import (
+	"testing"
+	"unsafe"
+)
 
 // Symbols of testLanguage.
 const (
@@ -55,7 +58,7 @@ func TestSubtreeInlineLayout(t *testing.T) {
 		!sp.visible(s) || !sp.named(s) || sp.extra(s) || sp.totalBytes(s) != 16 {
 		t.Fatal("accessor mismatch")
 	}
-	if len(sp.heap) != 1 {
+	if sp.heapLen != 1 {
 		t.Fatal("inline leaf allocated")
 	}
 }
@@ -195,9 +198,9 @@ func TestSubtreeMakeMutAndRelease(t *testing.T) {
 		t.Fatalf("free list = %d, want 3", len(sp.freeTrees))
 	}
 	// A freed index is reused.
-	before := len(sp.heap)
+	before := sp.heapLen
 	sp.newLeaf(tsIdent, length{}, big, 1, 1, false, false, false, lang)
-	if len(sp.heap) != before || len(sp.freeTrees) != 2 {
+	if sp.heapLen != before || len(sp.freeTrees) != 2 {
 		t.Fatal("free index not reused")
 	}
 }
@@ -264,5 +267,68 @@ func TestSubtreeRepeatDepthOfLeaves(t *testing.T) {
 	}
 	if sp.externalScannerState(ext) != nil || !sp.externalScannerStateEq(ext, nullSubtree) {
 		t.Fatal("empty scanner state must equal the state of NULL")
+	}
+}
+
+func TestChildClass(t *testing.T) {
+	if s := unsafe.Sizeof(subtreeHeap{}); s != 88 {
+		t.Errorf("subtreeHeap is %d bytes, want 88", s)
+	}
+	prevClass, prevSize := uint32(0), uint32(0)
+	for _, n := range []uint32{1, 2, 63, 64, 65, 80, 81, 96, 97, 128, 129, 1000, 1 << 20, 1<<20 + 1, 1<<31 - 1, 1 << 31} {
+		class, size := childClass(n)
+		if size < n || uint64(size)*4 > uint64(n)*5+4 {
+			t.Errorf("childClass(%d): size %d", n, size)
+		}
+		if c, s := childClass(size); c != class || s != size {
+			t.Errorf("childClass(%d) = %d, %d but its size maps to %d, %d", n, class, size, c, s)
+		}
+		if class < prevClass || (class == prevClass) != (size == prevSize) || class >= childClassCount {
+			t.Errorf("childClass(%d) = %d, %d after %d, %d", n, class, size, prevClass, prevSize)
+		}
+		prevClass, prevSize = class, size
+	}
+	if class, _ := childClass(65); class != exactChildClasses+1 {
+		t.Errorf("first rounded class = %d", class)
+	}
+}
+
+// A released node's children block serves the next request of its class, and
+// an array that is copied one element longer each time, the shape of
+// ts_parser__recover_to_state, keeps the slab linear in its length.
+func TestChildrenBlockReuse(t *testing.T) {
+	sp, lang := newTestPool(), testLanguage()
+	leaf := subtree(tsAnon)<<inlSymbolShift | inlIsInline
+	node := func(n int) subtree {
+		arr := subtreeArray{}
+		sp.arrayReserve(&arr, uint32(n))
+		for i := 0; i < n; i++ {
+			sp.arrayPush(&arr, leaf)
+		}
+		return sp.newNode(tsRule, &arr, 0, lang)
+	}
+	a, b := node(3), node(5)
+	off := sp.ptr(a).children
+	sp.release(a)
+	if c := node(3); sp.ptr(c).children != off {
+		t.Errorf("freed block not reused: %d, want %d", sp.ptr(c).children, off)
+	}
+	sp.release(b)
+
+	const rounds = 5000
+	errorTree := node(1)
+	for i := 0; i < rounds; i++ {
+		slice := subtreeArray{}
+		sp.arrayReserve(&slice, 1)
+		sp.arrayPush(&slice, leaf)
+		sp.arraySplice(&slice, 0, 0, sp.childrenOf(errorTree))
+		sp.release(errorTree)
+		errorTree = sp.newNode(tsRule, &slice, 0, lang)
+	}
+	if n := sp.ptr(errorTree).childCount; n != rounds+1 {
+		t.Fatalf("child count = %d", n)
+	}
+	if len(sp.children) > 40*rounds {
+		t.Errorf("children slab has %d entries for a node of %d children", len(sp.children), rounds)
 	}
 }

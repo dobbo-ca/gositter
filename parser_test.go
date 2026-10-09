@@ -6,6 +6,7 @@ import (
 
 	"github.com/dobbo-ca/gositter"
 	"github.com/dobbo-ca/gositter/grammars/json"
+	"github.com/dobbo-ca/gositter/grammars/kotlin"
 )
 
 func parseJSON(t testing.TB, src string) (*gositter.Parser, gositter.Node) {
@@ -190,5 +191,37 @@ func BenchmarkParseJSON(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		p.Parse(src)
+	}
+}
+
+// Inputs that never leave error recovery. Every array the recovery drops has
+// to be reusable: these took 300 to 3000 children slab entries per input byte
+// when it was not, and at 100,000 bytes the 32-bit slab offset wrapped.
+func TestErrorRecoveryMemory(t *testing.T) {
+	cases := []struct {
+		name string
+		lang *gositter.Language
+		src  string
+	}{
+		{"kotlin_lt", kotlin.Language(), strings.Repeat("<", 5000)},
+		{"kotlin_rbracket", kotlin.Language(), strings.Repeat("]", 5000)},
+		{"json_open", json.Language(), strings.Repeat(`{"a": "b`, 2500)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			p := gositter.NewParser()
+			p.SetLanguage(c.lang)
+			src := []byte(c.src)
+			root := p.Parse(src).RootNode()
+			if !root.HasError() || root.EndByte() != uint32(len(src)) {
+				t.Fatalf("root: error=%v end=%d", root.HasError(), root.EndByte())
+			}
+			if got, limit := p.ChildrenSlabCap(), 128*len(src); got > limit {
+				t.Errorf("children slab: %d entries, limit %d", got, limit)
+			}
+			if n := testing.AllocsPerRun(1, func() { p.Parse(src) }); n != 0 {
+				t.Errorf("second parse: %v allocs, want 0", n)
+			}
+		})
 	}
 }

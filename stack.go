@@ -3,6 +3,8 @@ package gositter
 // stack.c: the graph-structured stack. Nodes live in a slab and are
 // addressed by index; 0 is the NULL node.
 
+import "math"
+
 const (
 	maxLinkCount     = 8  // MAX_LINK_COUNT
 	maxIteratorCount = 64 // MAX_ITERATOR_COUNT
@@ -147,6 +149,16 @@ func (s *stack) nodeRelease(self uint32) {
 	}
 }
 
+// The slab doubles, as the subtree slabs do: append grows a large slice by a
+// quarter, which left four times a deep stack behind as garbage.
+func (s *stack) growNodes() {
+	n := len(s.nodes)
+	if n > math.MaxUint32/2 {
+		panic(errSlabFull)
+	}
+	s.nodes = append(make([]stackNode, 0, 2*n), s.nodes...)
+}
+
 // stack__subtree_node_count
 func (s *stack) subtreeNodeCount(t subtree) uint32 {
 	count := s.sp.visibleDescendantCount(t)
@@ -170,8 +182,11 @@ func (s *stack) nodeNew(previousNode uint32, t subtree, isPending bool, state St
 		i = s.nodePool[n-1]
 		s.nodePool = s.nodePool[:n-1]
 	} else {
-		s.nodes = append(s.nodes, stackNode{})
-		i = uint32(len(s.nodes) - 1)
+		i = uint32(len(s.nodes))
+		if len(s.nodes) == cap(s.nodes) {
+			s.growNodes()
+		}
+		s.nodes = s.nodes[:i+1]
 	}
 	node := &s.nodes[i]
 	node.refCount = 1
@@ -682,7 +697,7 @@ func (s *stack) popLinear(version uint32, count uint32) (subtrees subtreeArray, 
 		} else if counted == 0 {
 			trailing++
 		}
-		sp.children[sp.allocChildren(1)] = link.subtree
+		sp.children[sp.bumpChildren(1)] = link.subtree
 		s.nodePool = append(s.nodePool, below)
 		below = link.node
 	}

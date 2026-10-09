@@ -27,3 +27,6 @@ func (l *Language) SmallTableBytes() int {
 	l.prepare()
 	return 4 * (len(l.smallBase) + len(l.smallComb))
 }
+
+// ChildrenSlabCap is the capacity of the children slab, in entries.
+func (p *Parser) ChildrenSlabCap() int { return cap(p.pool.children) }

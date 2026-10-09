@@ -254,7 +254,9 @@ func (l *Language) prepare() {
 		slices.SortStableFunc(order, func(a, b uint32) int { return cmp.Compare(rowLen(b), rowLen(a)) })
 
 		base := make([]uint32, small)
-		comb := make([]uint32, l.SymbolCount, uint32(len(entries))+l.SymbolCount)
+		// The packed table comes to at most 1.61 slots per small parse table
+		// entry in the 21 grammars; this capacity spares them the regrowth.
+		comb := make([]uint32, l.SymbolCount, uint32(len(l.SmallParseTable))*7/4+l.SymbolCount)
 		lowest := uint32(0) // no free slot below this index
 		longBase := uint32(0)
 		for _, st := range order {
@@ -295,7 +297,12 @@ func (l *Language) prepare() {
 				longBase = b
 			}
 			if need := int(b + l.SymbolCount); need > len(comb) {
-				comb = append(comb, make([]uint32, need-len(comb))...)
+				if need > cap(comb) {
+					// Doubling: append would grow a large slice by a
+					// quarter and leave five times the table as garbage.
+					comb = append(make([]uint32, 0, max(2*cap(comb), need)), comb...)
+				}
+				comb = comb[:need]
 			}
 			for _, e := range row {
 				comb[b+uint32(e.symbol)] = (st+1)<<16 | uint32(e.value)
