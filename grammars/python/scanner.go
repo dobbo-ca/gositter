@@ -337,9 +337,10 @@ func (s *scanner) Serialize(buf []byte) int {
 	size += copy(buf[size:], s.delimiters[:delimiterCount])
 
 	// C tests only size < 1024 and then writes two bytes. With an odd
-	// delimiter count and 511+ indents it writes one byte past the buffer
-	// and returns 1025, which trips the runtime's assert. Stop one pair
-	// earlier there instead of panicking.
+	// delimiter count and 511+ indents (511 nested blocks, then a string
+	// start) it writes one byte past the buffer and returns 1025; the
+	// runtime's ts_assert(length <= 1024) then aborts the process, as
+	// dump-c shows. There is no C tree to match, so stop one pair earlier.
 	for iter := 1; iter < len(s.indents) && size+1 < len(buf); iter++ {
 		indentValue := s.indents[iter]
 		buf[size] = byte(indentValue)

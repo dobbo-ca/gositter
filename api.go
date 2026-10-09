@@ -197,9 +197,8 @@ type Language struct {
 
 	// Derived by prepare, see language.go.
 	prepareOnce sync.Once
-	smallDense  []uint16
-	// SymbolCount once smallDense is built, else 0.
-	smallDenseSymbols uint32
+	smallBase   []uint32 // per small state: its offset in smallComb
+	smallComb   []uint32 // (state+1)<<16 | value, 0 if free
 }
 
 // set_contains

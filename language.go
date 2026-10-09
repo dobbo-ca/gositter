@@ -1,5 +1,10 @@
 package gositter
 
+import (
+	"cmp"
+	"slices"
+)
+
 // language.c and language.h. The lookahead iterator, supertype and
 // symbol_for_name functions serve queries only and are not ported.
 
@@ -154,11 +159,17 @@ func (l *Language) lookup(state StateID, symbol Symbol) uint16 {
 	return l.ParseTable[uint32(state)*l.SymbolCount+uint32(symbol)]
 }
 
-// The small-state half of ts_language_lookup. smallDense holds what the scan
-// returns: one load instead of a search.
+// The small-state half of ts_language_lookup. smallComb holds what the scan
+// returns: two loads instead of a search.
 func (l *Language) lookupSmall(state StateID, symbol Symbol) uint16 {
-	if uint32(symbol) < l.smallDenseSymbols {
-		return l.smallDense[(uint32(state)-l.LargeStateCount)*l.smallDenseSymbols+uint32(symbol)]
+	st := uint32(state) - l.LargeStateCount
+	if st < uint32(len(l.smallBase)) && uint32(symbol) < l.SymbolCount {
+		// A slot belongs to the state whose number it carries; any other
+		// slot means the scan would find nothing.
+		if e := l.smallComb[l.smallBase[st]+uint32(symbol)]; e>>16 == st+1 {
+			return uint16(e)
+		}
+		return 0
 	}
 	return l.scanSmall(state, symbol)
 }
@@ -183,27 +194,37 @@ func (l *Language) scanSmall(state StateID, symbol Symbol) uint16 {
 	return 0
 }
 
-// ponytail: 2 bytes per small state and symbol. Above this many entries
-// (verilog: 16.4M) the table is not built and lookup scans as C does. A
-// row-displacement table from the generator would cover those too.
-const maxSmallDenseEntries = 12 << 20
+const combLongRow = 4 // entries; see prepare
 
-// prepare builds the derived lookup tables once per Language. Parsers call it
-// from SetLanguage, so the tables are published before any parser reads them.
+// prepare builds the derived lookup table once per Language. Parsers call it
+// from SetLanguage, so the table is published before any parser reads it.
+//
+// The table is the small parse table as a row-displacement ("comb") table:
+// the row of small state st is laid over one shared array at offset
+// smallBase[st], wherever its non-zero entries hit only free slots. A slot is
+// (st+1)<<16 | value, and 0 when free. It takes about 4 bytes per entry of
+// the small parse table, where one dense row per state took up to 16 MB
+// (scala) and was not built at all for verilog.
 func (l *Language) prepare() {
 	l.prepareOnce.Do(func() {
 		if l.StateCount <= l.LargeStateCount {
 			return
 		}
 		small := l.StateCount - l.LargeStateCount
-		n := uint64(small) * uint64(l.SymbolCount)
-		if n > maxSmallDenseEntries || uint32(len(l.SmallParseTableMap)) < small {
+		// The state number in a slot has 16 bits.
+		if small >= 0xFFFF || uint32(len(l.SmallParseTableMap)) < small {
 			return
 		}
-		dense := make([]uint16, n)
-		seen := make([]uint32, l.SymbolCount) // the scan returns the first match
+
+		// The rows: for each state the (symbol, value) pairs the scan can
+		// return. The scan returns the first match, and a zero value is the
+		// same as no entry.
+		type entry struct{ symbol, value uint16 }
+		entries := make([]entry, 0, len(l.SmallParseTable))
+		rowStart := make([]uint32, small+1)
+		seen := make([]uint32, l.SymbolCount)
 		for st := uint32(0); st < small; st++ {
-			row := dense[st*l.SymbolCount : (st+1)*l.SymbolCount]
+			rowStart[st] = uint32(len(entries))
 			data := l.SmallParseTable[l.SmallParseTableMap[st]:]
 			groupCount := data[0]
 			pos := 1
@@ -214,14 +235,75 @@ func (l *Language) prepare() {
 				for _, s := range data[pos : pos+symbolCount] {
 					if uint32(s) < l.SymbolCount && seen[s] != st+1 {
 						seen[s] = st + 1
-						row[s] = sectionValue
+						if sectionValue != 0 {
+							entries = append(entries, entry{s, sectionValue})
+						}
 					}
 				}
 				pos += symbolCount
 			}
 		}
-		l.smallDense = dense
-		l.smallDenseSymbols = l.SymbolCount
+		rowStart[small] = uint32(len(entries))
+
+		// First fit, longest rows first: they are the hardest to place.
+		order := make([]uint32, small)
+		for i := range order {
+			order[i] = uint32(i)
+		}
+		rowLen := func(st uint32) uint32 { return rowStart[st+1] - rowStart[st] }
+		slices.SortStableFunc(order, func(a, b uint32) int { return cmp.Compare(rowLen(b), rowLen(a)) })
+
+		base := make([]uint32, small)
+		comb := make([]uint32, l.SymbolCount, uint32(len(entries))+l.SymbolCount)
+		lowest := uint32(0) // no free slot below this index
+		longBase := uint32(0)
+		for _, st := range order {
+			row := entries[rowStart[st]:rowStart[st+1]]
+			if len(row) == 0 {
+				continue
+			}
+			for lowest < uint32(len(comb)) && comb[lowest] != 0 {
+				lowest++
+			}
+			minSymbol := uint32(row[0].symbol)
+			for _, e := range row {
+				minSymbol = min(minSymbol, uint32(e.symbol))
+			}
+			// Short rows search from the lowest free slot and fill holes.
+			// Long rows overlap each other too much for that: each would
+			// walk the whole filled region, 40 s in total for scala. They
+			// start where the last long row went, and that cursor only
+			// moves forward.
+			b := uint32(0)
+			if lowest > minSymbol {
+				b = lowest - minSymbol
+			}
+			long := len(row) >= combLongRow
+			if long && longBase > b {
+				b = longBase
+			}
+		fit:
+			for ; ; b++ {
+				for _, e := range row {
+					if i := b + uint32(e.symbol); i < uint32(len(comb)) && comb[i] != 0 {
+						continue fit
+					}
+				}
+				break
+			}
+			if long {
+				longBase = b
+			}
+			if need := int(b + l.SymbolCount); need > len(comb) {
+				comb = append(comb, make([]uint32, need-len(comb))...)
+			}
+			for _, e := range row {
+				comb[b+uint32(e.symbol)] = (st+1)<<16 | uint32(e.value)
+			}
+			base[st] = b
+		}
+		l.smallComb = comb
+		l.smallBase = base
 	})
 }
 

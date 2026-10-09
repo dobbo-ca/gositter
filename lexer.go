@@ -163,8 +163,22 @@ func (l *Lexer) goTo(position length) {
 	l.Lookahead = 0
 }
 
-// ts_lexer__do_advance
-func (l *Lexer) doAdvance(skip bool) {
+// ts_lexer__advance, with ts_lexer__do_advance folded in: the lex functions
+// call this once per character, and one call is cheaper than two.
+func (l *Lexer) Advance(skip bool) {
+	if !l.hasChunk {
+		return
+	}
+
+	if l.logger != nil {
+		if skip {
+			l.logCharacter("skip")
+		} else {
+			l.logCharacter("consume")
+		}
+	}
+
+	// ts_lexer__do_advance
 	if l.lookaheadSize != 0 {
 		if l.Lookahead == '\n' {
 			l.currentPosition.extent.Row++
@@ -201,21 +215,63 @@ func (l *Lexer) doAdvance(skip bool) {
 	l.getLookahead()
 }
 
-// ts_lexer__advance
-func (l *Lexer) Advance(skip bool) {
-	if !l.hasChunk {
+// AdvanceRun is Advance(skip) repeated for as long as Lookahead is an ASCII
+// character in set. It has no C counterpart: generated lex functions call it
+// in states that loop on themselves (cmd/gengrammar/run.go). set[0] and
+// set[128:] are false.
+func (l *Lexer) AdvanceRun(set *[256]bool, skip bool) {
+	pos := l.currentPosition.bytes
+	if l.logger != nil || l.lookaheadSize != 1 || pos-l.chunkStart >= l.chunkSize {
+		// Logging wants one message per character.
+		for uint32(l.Lookahead) < 128 && set[l.Lookahead] && l.hasChunk {
+			l.Advance(skip)
+		}
 		return
 	}
 
-	if l.logger != nil {
-		if skip {
-			l.logCharacter("skip")
-		} else {
-			l.logCharacter("consume")
+	// Inside the chunk with a one-byte lookahead, Lookahead is src[pos] or a
+	// decode error, and a byte of 0x80 or more ends the run.
+	src := l.src
+	end := pos
+	rows, lineStart := uint32(0), pos
+	for int(end) < len(src) && set[src[end]] {
+		if src[end] == '\n' {
+			rows++
+			lineStart = end + 1
 		}
+		end++
+	}
+	if end == pos {
+		return
 	}
 
-	l.doAdvance(skip)
+	// What ts_lexer__do_advance adds up one character at a time.
+	if rows > 0 {
+		l.currentPosition.extent.Row += rows
+		l.currentPosition.extent.Column = end - lineStart
+		l.columnData = columnData{value: end - lineStart, valid: true}
+	} else {
+		l.currentPosition.extent.Column += end - pos
+		if l.columnData.valid {
+			l.columnData.value += end - pos
+		}
+	}
+	l.currentPosition.bytes = end
+
+	if skip {
+		l.tokenStartPosition = l.currentPosition
+	}
+
+	if end-l.chunkStart < l.chunkSize {
+		if c := src[end]; c < utf8.RuneSelf {
+			l.lookaheadSize = 1
+			l.Lookahead = int32(c)
+			return
+		}
+	} else {
+		l.getChunk()
+	}
+	l.getLookahead()
 }
 
 // ts_lexer__mark_end
@@ -243,12 +299,16 @@ func (l *Lexer) GetColumn() uint32 {
 		if !l.EOF() {
 			l.getLookahead()
 
+			// C calls ts_lexer__do_advance, which does not log.
+			logger := l.logger
+			l.logger = nil
 			for l.currentPosition.bytes < goalByte && !l.EOF() && l.hasChunk {
-				l.doAdvance(false)
+				l.Advance(false)
 				if l.EOF() {
 					break
 				}
 			}
+			l.logger = logger
 		}
 	}
 

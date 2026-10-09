@@ -282,6 +282,41 @@ func (e *emitter) lex(out io.Writer) {
 		}
 		w.WriteString("}\n")
 	}
+	// One table per distinct run set, in order of first use.
+	runTable := map[[128]bool]int{}
+	runOf := map[*lexCase][2]int{} // table index + 1 for ADVANCE and for SKIP
+	for _, f := range g.lexFns {
+		for i := range f.cases {
+			c := &f.cases[i]
+			adv, skip := e.runSets(*c)
+			var ids [2]int
+			for k, set := range [2][128]bool{adv, skip} {
+				if set == ([128]bool{}) {
+					continue
+				}
+				if _, ok := runTable[set]; !ok {
+					runTable[set] = len(runTable)
+					fmt.Fprintf(w, "\nvar lexRun%d = [256]bool{", runTable[set])
+					n := 0
+					for ch, in := range set {
+						if !in {
+							continue
+						}
+						if n%16 == 0 {
+							w.WriteString("\n\t")
+						} else {
+							w.WriteString(" ")
+						}
+						fmt.Fprintf(w, "%d: true,", ch)
+						n++
+					}
+					w.WriteString("\n}\n")
+				}
+				ids[k] = runTable[set] + 1
+			}
+			runOf[c] = ids
+		}
+	}
 	for _, f := range g.lexFns {
 		name := map[string]string{"ts_lex": "lex", "ts_lex_keywords": "lexKeywords"}[f.cname]
 		if name == "" {
@@ -304,8 +339,18 @@ start:
 	_, _ = eof, lookahead
 	switch state {
 `, f.cname, name)
-		for _, c := range f.cases {
+		for i := range f.cases {
+			c := &f.cases[i]
 			fmt.Fprintf(w, "\tcase %d:\n", c.state)
+			// A state that both advances and skips on itself gets the
+			// ADVANCE run only. The skips stay one step at a time.
+			ids := runOf[c]
+			if id, skip := ids[0], false; id != 0 || ids[1] != 0 {
+				if id == 0 {
+					id, skip = ids[1], true
+				}
+				fmt.Fprintf(w, "\t\tif uint32(lookahead) < 128 && lexRun%d[lookahead] {\n\t\t\tl.AdvanceRun(&lexRun%d, %t)\n\t\t\tlookahead = l.Lookahead\n\t\t\teof = l.EOF()\n\t\t}\n", id-1, id-1, skip)
+			}
 			for _, s := range c.stmts {
 				switch s.kind {
 				case 'e':

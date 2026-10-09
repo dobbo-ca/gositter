@@ -35,6 +35,102 @@ var sym_word_character_set_1_ascii = [128]bool{
 	115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 126: true, 127: true,
 }
 
+var lexRun0 = [256]bool{
+	9: true, 11: true, 12: true, 13: true, 32: true,
+}
+
+var lexRun1 = [256]bool{
+	9: true, 10: true, 11: true, 12: true, 13: true, 32: true,
+}
+
+var lexRun2 = [256]bool{
+	10: true, 13: true,
+}
+
+var lexRun3 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true,
+	50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true,
+	66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true,
+	82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true,
+	98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true,
+	114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun4 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true,
+	50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true,
+	66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true,
+	82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true,
+	99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true,
+	115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun5 = [256]bool{
+	92: true,
+}
+
+var lexRun6 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 65: true, 66: true, 67: true, 68: true, 69: true, 70: true,
+	71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true, 84: true, 85: true, 86: true,
+	87: true, 88: true, 89: true, 90: true, 95: true, 97: true, 98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true,
+	108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true,
+}
+
+var lexRun7 = [256]bool{
+	10: true,
+}
+
+var lexRun8 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true,
+}
+
+var lexRun9 = [256]bool{
+	9: true, 11: true, 12: true, 32: true,
+}
+
+var lexRun10 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 11: true, 12: true, 14: true, 15: true, 16: true, 17: true, 18: true,
+	19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true, 35: true,
+	37: true, 38: true, 39: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true, 50: true, 51: true, 52: true,
+	53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true, 66: true, 67: true, 68: true,
+	69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true, 84: true,
+	85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 93: true, 94: true, 95: true, 97: true, 98: true, 99: true, 100: true, 101: true, 102: true,
+	103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true, 117: true, 118: true,
+	119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun11 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 64: true, 65: true, 66: true, 67: true, 68: true, 69: true,
+	70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true, 84: true, 85: true,
+	86: true, 87: true, 88: true, 89: true, 90: true, 95: true, 97: true, 98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true,
+	107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true,
+}
+
+var lexRun12 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true, 17: true,
+	18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true,
+	34: true, 35: true, 36: true, 37: true, 38: true, 39: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true,
+	50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true,
+	66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true,
+	82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true,
+	98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true,
+	114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun13 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 14: true, 15: true, 16: true, 17: true, 18: true, 19: true, 20: true, 21: true,
+	22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 33: true, 35: true, 37: true, 42: true, 43: true, 44: true,
+	45: true, 46: true, 47: true, 48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 61: true, 63: true,
+	64: true, 65: true, 66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true,
+	80: true, 81: true, 82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 94: true, 95: true, 97: true, 98: true, 99: true,
+	100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true,
+	116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 126: true, 127: true,
+}
+
 // ts_lex
 func lex(l *gositter.Lexer, state gositter.StateID) bool {
 	result := false
@@ -209,6 +305,11 @@ start:
 		}
 		return result
 	case 6:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 682
@@ -348,6 +449,11 @@ start:
 		}
 		return result
 	case 12:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 683
@@ -1258,6 +1364,11 @@ start:
 		}
 		return result
 	case 92:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 684
@@ -1322,6 +1433,11 @@ start:
 		}
 		return result
 	case 93:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 684
@@ -1381,6 +1497,11 @@ start:
 		}
 		return result
 	case 94:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 684
@@ -1445,6 +1566,11 @@ start:
 		}
 		return result
 	case 95:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\n' {
 			state = 684
 			goto next_state
@@ -1497,6 +1623,11 @@ start:
 		}
 		return result
 	case 96:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\n' {
 			state = 684
 			goto next_state
@@ -1549,6 +1680,11 @@ start:
 		}
 		return result
 	case 97:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\n' {
 			state = 684
 			goto next_state
@@ -1593,6 +1729,11 @@ start:
 		}
 		return result
 	case 98:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\n' {
 			state = 684
 			goto next_state
@@ -2164,6 +2305,11 @@ start:
 		}
 		return result
 	case 156:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 685
@@ -2680,6 +2826,11 @@ start:
 		}
 		return result
 	case 202:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 686
@@ -2867,6 +3018,11 @@ start:
 		}
 		return result
 	case 216:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 687
@@ -3144,6 +3300,11 @@ start:
 		}
 		return result
 	case 233:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 688
@@ -3245,6 +3406,11 @@ start:
 		}
 		return result
 	case 234:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 689
@@ -3309,6 +3475,11 @@ start:
 		}
 		return result
 	case 235:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 690
@@ -3405,6 +3576,11 @@ start:
 		}
 		return result
 	case 236:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 691
@@ -3485,6 +3661,11 @@ start:
 		}
 		return result
 	case 237:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 692
@@ -3546,6 +3727,11 @@ start:
 		}
 		return result
 	case 238:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 693
@@ -3642,6 +3828,11 @@ start:
 		}
 		return result
 	case 239:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 694
@@ -3719,6 +3910,11 @@ start:
 		}
 		return result
 	case 240:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 695
@@ -3783,6 +3979,11 @@ start:
 		}
 		return result
 	case 241:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 696
@@ -3876,6 +4077,11 @@ start:
 		}
 		return result
 	case 242:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 697
@@ -3956,6 +4162,11 @@ start:
 		}
 		return result
 	case 243:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 698
@@ -4017,6 +4228,11 @@ start:
 		}
 		return result
 	case 244:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 699
@@ -4113,6 +4329,11 @@ start:
 		}
 		return result
 	case 245:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 700
@@ -4191,6 +4412,11 @@ start:
 		}
 		return result
 	case 246:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 701
@@ -4252,6 +4478,11 @@ start:
 		}
 		return result
 	case 247:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 702
@@ -4351,6 +4582,11 @@ start:
 		}
 		return result
 	case 248:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 703
@@ -4426,6 +4662,11 @@ start:
 		}
 		return result
 	case 249:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 704
@@ -4490,6 +4731,11 @@ start:
 		}
 		return result
 	case 250:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 705
@@ -4583,6 +4829,11 @@ start:
 		}
 		return result
 	case 251:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 706
@@ -4661,6 +4912,11 @@ start:
 		}
 		return result
 	case 252:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 707
@@ -4725,6 +4981,11 @@ start:
 		}
 		return result
 	case 253:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 708
@@ -4821,6 +5082,11 @@ start:
 		}
 		return result
 	case 254:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 709
@@ -4895,6 +5161,11 @@ start:
 		}
 		return result
 	case 255:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 710
@@ -4956,6 +5227,11 @@ start:
 		}
 		return result
 	case 256:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 711
@@ -5049,6 +5325,11 @@ start:
 		}
 		return result
 	case 257:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 712
@@ -5120,6 +5401,11 @@ start:
 		}
 		return result
 	case 258:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 713
@@ -5184,6 +5470,11 @@ start:
 		}
 		return result
 	case 259:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 714
@@ -5274,6 +5565,11 @@ start:
 		}
 		return result
 	case 260:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 715
@@ -5348,6 +5644,11 @@ start:
 		}
 		return result
 	case 261:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 716
@@ -5406,6 +5707,11 @@ start:
 		}
 		return result
 	case 262:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 717
@@ -5499,6 +5805,11 @@ start:
 		}
 		return result
 	case 263:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 718
@@ -5573,6 +5884,11 @@ start:
 		}
 		return result
 	case 264:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 719
@@ -5631,6 +5947,11 @@ start:
 		}
 		return result
 	case 265:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 720
@@ -5721,6 +6042,11 @@ start:
 		}
 		return result
 	case 266:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 721
@@ -5792,6 +6118,11 @@ start:
 		}
 		return result
 	case 267:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 722
@@ -5850,6 +6181,11 @@ start:
 		}
 		return result
 	case 268:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 723
@@ -5943,6 +6279,11 @@ start:
 		}
 		return result
 	case 269:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 724
@@ -6011,6 +6352,11 @@ start:
 		}
 		return result
 	case 270:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 725
@@ -6066,6 +6412,11 @@ start:
 		}
 		return result
 	case 271:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 726
@@ -6156,6 +6507,11 @@ start:
 		}
 		return result
 	case 272:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 727
@@ -6230,6 +6586,11 @@ start:
 		}
 		return result
 	case 273:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 728
@@ -6323,6 +6684,11 @@ start:
 		}
 		return result
 	case 274:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 729
@@ -6403,6 +6769,11 @@ start:
 		}
 		return result
 	case 275:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 730
@@ -6493,6 +6864,11 @@ start:
 		}
 		return result
 	case 276:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 731
@@ -6570,6 +6946,11 @@ start:
 		}
 		return result
 	case 277:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 732
@@ -6663,6 +7044,11 @@ start:
 		}
 		return result
 	case 278:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 733
@@ -6743,6 +7129,11 @@ start:
 		}
 		return result
 	case 279:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 734
@@ -6833,6 +7224,11 @@ start:
 		}
 		return result
 	case 280:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 735
@@ -6907,6 +7303,11 @@ start:
 		}
 		return result
 	case 281:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 736
@@ -6994,6 +7395,11 @@ start:
 		}
 		return result
 	case 282:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 737
@@ -7072,6 +7478,11 @@ start:
 		}
 		return result
 	case 283:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 738
@@ -7159,6 +7570,11 @@ start:
 		}
 		return result
 	case 284:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 739
@@ -7230,6 +7646,11 @@ start:
 		}
 		return result
 	case 285:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 740
@@ -7317,6 +7738,11 @@ start:
 		}
 		return result
 	case 286:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 741
@@ -7392,6 +7818,11 @@ start:
 		}
 		return result
 	case 287:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 742
@@ -7479,6 +7910,11 @@ start:
 		}
 		return result
 	case 288:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 743
@@ -7553,6 +7989,11 @@ start:
 		}
 		return result
 	case 289:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 744
@@ -7634,6 +8075,11 @@ start:
 		}
 		return result
 	case 290:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 745
@@ -7708,6 +8154,11 @@ start:
 		}
 		return result
 	case 291:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 746
@@ -7786,6 +8237,11 @@ start:
 		}
 		return result
 	case 292:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 747
@@ -7857,6 +8313,11 @@ start:
 		}
 		return result
 	case 293:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 748
@@ -7931,6 +8392,11 @@ start:
 		}
 		return result
 	case 294:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 749
@@ -8005,6 +8471,11 @@ start:
 		}
 		return result
 	case 295:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 750
@@ -8073,6 +8544,11 @@ start:
 		}
 		return result
 	case 296:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 751
@@ -8141,6 +8617,11 @@ start:
 		}
 		return result
 	case 297:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 752
@@ -9677,6 +10158,11 @@ start:
 		}
 		return result
 	case 397:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -9789,6 +10275,11 @@ start:
 		}
 		return result
 	case 398:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -9891,6 +10382,11 @@ start:
 		}
 		return result
 	case 399:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -9986,6 +10482,11 @@ start:
 		}
 		return result
 	case 400:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -10084,6 +10585,11 @@ start:
 		}
 		return result
 	case 401:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -10182,6 +10688,11 @@ start:
 		}
 		return result
 	case 402:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -10277,6 +10788,11 @@ start:
 		}
 		return result
 	case 403:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 664
@@ -10372,6 +10888,11 @@ start:
 		}
 		return result
 	case 404:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10453,6 +10974,11 @@ start:
 		}
 		return result
 	case 405:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10543,6 +11069,11 @@ start:
 		}
 		return result
 	case 406:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10630,6 +11161,11 @@ start:
 		}
 		return result
 	case 407:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10714,6 +11250,11 @@ start:
 		}
 		return result
 	case 408:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10798,6 +11339,11 @@ start:
 		}
 		return result
 	case 409:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10882,6 +11428,11 @@ start:
 		}
 		return result
 	case 410:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -10966,6 +11517,11 @@ start:
 		}
 		return result
 	case 411:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11047,6 +11603,11 @@ start:
 		}
 		return result
 	case 412:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11124,6 +11685,11 @@ start:
 		}
 		return result
 	case 413:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11204,6 +11770,11 @@ start:
 		}
 		return result
 	case 414:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11278,6 +11849,11 @@ start:
 		}
 		return result
 	case 415:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11352,6 +11928,11 @@ start:
 		}
 		return result
 	case 416:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11420,6 +12001,11 @@ start:
 		}
 		return result
 	case 417:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11494,6 +12080,11 @@ start:
 		}
 		return result
 	case 418:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11565,6 +12156,11 @@ start:
 		}
 		return result
 	case 419:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 666
@@ -11636,6 +12232,11 @@ start:
 		}
 		return result
 	case 420:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 942
@@ -11728,6 +12329,11 @@ start:
 		}
 		return result
 	case 421:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 942
@@ -11820,6 +12426,11 @@ start:
 		}
 		return result
 	case 422:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 665
@@ -11893,6 +12504,11 @@ start:
 		}
 		return result
 	case 423:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 665
@@ -11966,6 +12582,11 @@ start:
 		}
 		return result
 	case 424:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 665
@@ -12039,6 +12660,11 @@ start:
 		}
 		return result
 	case 425:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 665
@@ -12112,6 +12738,11 @@ start:
 		}
 		return result
 	case 426:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 665
@@ -12285,6 +12916,11 @@ start:
 		}
 		return result
 	case 428:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12381,6 +13017,11 @@ start:
 		}
 		return result
 	case 429:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12473,6 +13114,11 @@ start:
 		}
 		return result
 	case 430:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12534,6 +13180,11 @@ start:
 		}
 		return result
 	case 431:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12610,6 +13261,11 @@ start:
 		}
 		return result
 	case 432:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12682,6 +13338,11 @@ start:
 		}
 		return result
 	case 433:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12746,6 +13407,11 @@ start:
 		}
 		return result
 	case 434:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12893,6 +13559,11 @@ start:
 		}
 		return result
 	case 436:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -12954,6 +13625,11 @@ start:
 		}
 		return result
 	case 437:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 500
@@ -13024,6 +13700,11 @@ start:
 		}
 		return result
 	case 438:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13082,6 +13763,11 @@ start:
 		}
 		return result
 	case 439:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13137,6 +13823,11 @@ start:
 		}
 		return result
 	case 440:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13195,6 +13886,11 @@ start:
 		}
 		return result
 	case 441:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13250,6 +13946,11 @@ start:
 		}
 		return result
 	case 442:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13299,6 +14000,11 @@ start:
 		}
 		return result
 	case 443:
+		if uint32(lookahead) < 128 && lexRun2[lookahead] {
+			l.AdvanceRun(&lexRun2, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13350,6 +14056,11 @@ start:
 		}
 		return result
 	case 444:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13393,6 +14104,11 @@ start:
 		}
 		return result
 	case 445:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13471,6 +14187,11 @@ start:
 		}
 		return result
 	case 446:
+		if uint32(lookahead) < 128 && lexRun2[lookahead] {
+			l.AdvanceRun(&lexRun2, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13519,6 +14240,11 @@ start:
 		}
 		return result
 	case 447:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 663
@@ -13559,6 +14285,11 @@ start:
 		}
 		return result
 	case 448:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '!' {
 			state = 663
 			goto next_state
@@ -13615,6 +14346,11 @@ start:
 		}
 		return result
 	case 449:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '!' {
 			state = 663
 			goto next_state
@@ -13721,6 +14457,11 @@ start:
 		}
 		return result
 	case 451:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -13786,6 +14527,11 @@ start:
 		}
 		return result
 	case 452:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -13854,6 +14600,11 @@ start:
 		}
 		return result
 	case 453:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -13922,6 +14673,11 @@ start:
 		}
 		return result
 	case 454:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -13993,6 +14749,11 @@ start:
 		}
 		return result
 	case 455:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14064,6 +14825,11 @@ start:
 		}
 		return result
 	case 456:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14135,6 +14901,11 @@ start:
 		}
 		return result
 	case 457:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14203,6 +14974,11 @@ start:
 		}
 		return result
 	case 458:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14268,6 +15044,11 @@ start:
 		}
 		return result
 	case 459:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14333,6 +15114,11 @@ start:
 		}
 		return result
 	case 460:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14398,6 +15184,11 @@ start:
 		}
 		return result
 	case 461:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14463,6 +15254,11 @@ start:
 		}
 		return result
 	case 462:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14528,6 +15324,11 @@ start:
 		}
 		return result
 	case 463:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14593,6 +15394,11 @@ start:
 		}
 		return result
 	case 464:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14662,6 +15468,11 @@ start:
 		}
 		return result
 	case 465:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14731,6 +15542,11 @@ start:
 		}
 		return result
 	case 466:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14796,6 +15612,11 @@ start:
 		}
 		return result
 	case 467:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14858,6 +15679,11 @@ start:
 		}
 		return result
 	case 468:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14932,6 +15758,11 @@ start:
 		}
 		return result
 	case 469:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -14981,6 +15812,11 @@ start:
 		}
 		return result
 	case 470:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -15065,6 +15901,11 @@ start:
 		}
 		return result
 	case 472:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -15127,6 +15968,11 @@ start:
 		}
 		return result
 	case 473:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 783
@@ -15186,6 +16032,11 @@ start:
 		}
 		return result
 	case 474:
+		if uint32(lookahead) < 128 && lexRun2[lookahead] {
+			l.AdvanceRun(&lexRun2, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '"' {
 			state = 783
 			goto next_state
@@ -15279,6 +16130,11 @@ start:
 		}
 		return result
 	case 476:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 811
 			goto next_state
@@ -15323,6 +16179,11 @@ start:
 		}
 		return result
 	case 477:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 857
 			goto next_state
@@ -15383,6 +16244,11 @@ start:
 		}
 		return result
 	case 478:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 857
@@ -15436,6 +16302,11 @@ start:
 		}
 		return result
 	case 479:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 857
@@ -15476,6 +16347,11 @@ start:
 		}
 		return result
 	case 480:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 857
@@ -15522,6 +16398,11 @@ start:
 		}
 		return result
 	case 481:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 857
 			goto next_state
@@ -15566,6 +16447,11 @@ start:
 		}
 		return result
 	case 482:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 857
 			goto next_state
@@ -15626,6 +16512,11 @@ start:
 		}
 		return result
 	case 485:
+		if uint32(lookahead) < 128 && lexRun3[lookahead] {
+			l.AdvanceRun(&lexRun3, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\'' {
 			state = 794
 			goto next_state
@@ -15636,6 +16527,11 @@ start:
 		}
 		return result
 	case 486:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\'' {
 			state = 795
 			goto next_state
@@ -15650,6 +16546,11 @@ start:
 		}
 		return result
 	case 487:
+		if uint32(lookahead) < 128 && lexRun5[lookahead] {
+			l.AdvanceRun(&lexRun5, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\'' {
 			state = 796
 			goto next_state
@@ -15788,6 +16689,11 @@ start:
 		}
 		return result
 	case 504:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '`' {
 			state = 774
 			goto next_state
@@ -15846,6 +16752,11 @@ start:
 		}
 		return result
 	case 513:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -15902,6 +16813,11 @@ start:
 		}
 		return result
 	case 514:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -15958,6 +16874,11 @@ start:
 		}
 		return result
 	case 515:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16014,6 +16935,11 @@ start:
 		}
 		return result
 	case 516:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16114,6 +17040,11 @@ start:
 		}
 		return result
 	case 521:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16198,6 +17129,11 @@ start:
 		}
 		return result
 	case 522:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16298,6 +17234,11 @@ start:
 		}
 		return result
 	case 523:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16363,6 +17304,11 @@ start:
 		}
 		return result
 	case 524:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16460,6 +17406,11 @@ start:
 		}
 		return result
 	case 525:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16542,6 +17493,11 @@ start:
 		}
 		return result
 	case 526:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16607,6 +17563,11 @@ start:
 		}
 		return result
 	case 527:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16685,6 +17646,11 @@ start:
 		}
 		return result
 	case 528:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16779,6 +17745,11 @@ start:
 		}
 		return result
 	case 529:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16857,6 +17828,11 @@ start:
 		}
 		return result
 	case 530:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -16951,6 +17927,11 @@ start:
 		}
 		return result
 	case 531:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -17035,6 +18016,11 @@ start:
 		}
 		return result
 	case 532:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -17113,6 +18099,11 @@ start:
 		}
 		return result
 	case 533:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -17195,6 +18186,11 @@ start:
 		}
 		return result
 	case 534:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -17337,6 +18333,11 @@ start:
 		}
 		return result
 	case 539:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -17453,6 +18454,11 @@ start:
 		}
 		return result
 	case 540:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 541
 			goto next_state
@@ -18763,6 +19769,11 @@ start:
 		l.MarkEnd()
 		return result
 	case 650:
+		if uint32(lookahead) < 128 && lexRun6[lookahead] {
+			l.AdvanceRun(&lexRun6, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym__c_word_token1
 		l.MarkEnd()
@@ -19015,6 +20026,11 @@ start:
 		l.MarkEnd()
 		return result
 	case 682:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19040,6 +20056,11 @@ start:
 		}
 		return result
 	case 683:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19053,6 +20074,11 @@ start:
 		}
 		return result
 	case 684:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19062,6 +20088,11 @@ start:
 		}
 		return result
 	case 685:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19075,6 +20106,11 @@ start:
 		}
 		return result
 	case 686:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19088,6 +20124,11 @@ start:
 		}
 		return result
 	case 687:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19101,6 +20142,11 @@ start:
 		}
 		return result
 	case 688:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19114,6 +20160,11 @@ start:
 		}
 		return result
 	case 689:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19127,6 +20178,11 @@ start:
 		}
 		return result
 	case 690:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19140,6 +20196,11 @@ start:
 		}
 		return result
 	case 691:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19153,6 +20214,11 @@ start:
 		}
 		return result
 	case 692:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19166,6 +20232,11 @@ start:
 		}
 		return result
 	case 693:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19179,6 +20250,11 @@ start:
 		}
 		return result
 	case 694:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19192,6 +20268,11 @@ start:
 		}
 		return result
 	case 695:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19205,6 +20286,11 @@ start:
 		}
 		return result
 	case 696:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19218,6 +20304,11 @@ start:
 		}
 		return result
 	case 697:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19231,6 +20322,11 @@ start:
 		}
 		return result
 	case 698:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19244,6 +20340,11 @@ start:
 		}
 		return result
 	case 699:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19257,6 +20358,11 @@ start:
 		}
 		return result
 	case 700:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19270,6 +20376,11 @@ start:
 		}
 		return result
 	case 701:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19283,6 +20394,11 @@ start:
 		}
 		return result
 	case 702:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19296,6 +20412,11 @@ start:
 		}
 		return result
 	case 703:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19309,6 +20430,11 @@ start:
 		}
 		return result
 	case 704:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19322,6 +20448,11 @@ start:
 		}
 		return result
 	case 705:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19335,6 +20466,11 @@ start:
 		}
 		return result
 	case 706:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19348,6 +20484,11 @@ start:
 		}
 		return result
 	case 707:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19361,6 +20502,11 @@ start:
 		}
 		return result
 	case 708:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19374,6 +20520,11 @@ start:
 		}
 		return result
 	case 709:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19387,6 +20538,11 @@ start:
 		}
 		return result
 	case 710:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19400,6 +20556,11 @@ start:
 		}
 		return result
 	case 711:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19413,6 +20574,11 @@ start:
 		}
 		return result
 	case 712:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19426,6 +20592,11 @@ start:
 		}
 		return result
 	case 713:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19439,6 +20610,11 @@ start:
 		}
 		return result
 	case 714:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19452,6 +20628,11 @@ start:
 		}
 		return result
 	case 715:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19465,6 +20646,11 @@ start:
 		}
 		return result
 	case 716:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19478,6 +20664,11 @@ start:
 		}
 		return result
 	case 717:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19491,6 +20682,11 @@ start:
 		}
 		return result
 	case 718:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19504,6 +20700,11 @@ start:
 		}
 		return result
 	case 719:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19517,6 +20718,11 @@ start:
 		}
 		return result
 	case 720:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19530,6 +20736,11 @@ start:
 		}
 		return result
 	case 721:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19543,6 +20754,11 @@ start:
 		}
 		return result
 	case 722:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19556,6 +20772,11 @@ start:
 		}
 		return result
 	case 723:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19569,6 +20790,11 @@ start:
 		}
 		return result
 	case 724:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19582,6 +20808,11 @@ start:
 		}
 		return result
 	case 725:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19595,6 +20826,11 @@ start:
 		}
 		return result
 	case 726:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19608,6 +20844,11 @@ start:
 		}
 		return result
 	case 727:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19621,6 +20862,11 @@ start:
 		}
 		return result
 	case 728:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19634,6 +20880,11 @@ start:
 		}
 		return result
 	case 729:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19647,6 +20898,11 @@ start:
 		}
 		return result
 	case 730:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19660,6 +20916,11 @@ start:
 		}
 		return result
 	case 731:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19673,6 +20934,11 @@ start:
 		}
 		return result
 	case 732:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19686,6 +20952,11 @@ start:
 		}
 		return result
 	case 733:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19699,6 +20970,11 @@ start:
 		}
 		return result
 	case 734:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19712,6 +20988,11 @@ start:
 		}
 		return result
 	case 735:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19725,6 +21006,11 @@ start:
 		}
 		return result
 	case 736:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19738,6 +21024,11 @@ start:
 		}
 		return result
 	case 737:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19751,6 +21042,11 @@ start:
 		}
 		return result
 	case 738:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19764,6 +21060,11 @@ start:
 		}
 		return result
 	case 739:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19777,6 +21078,11 @@ start:
 		}
 		return result
 	case 740:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19790,6 +21096,11 @@ start:
 		}
 		return result
 	case 741:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19803,6 +21114,11 @@ start:
 		}
 		return result
 	case 742:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19816,6 +21132,11 @@ start:
 		}
 		return result
 	case 743:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19829,6 +21150,11 @@ start:
 		}
 		return result
 	case 744:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19842,6 +21168,11 @@ start:
 		}
 		return result
 	case 745:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19855,6 +21186,11 @@ start:
 		}
 		return result
 	case 746:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19868,6 +21204,11 @@ start:
 		}
 		return result
 	case 747:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19881,6 +21222,11 @@ start:
 		}
 		return result
 	case 748:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19894,6 +21240,11 @@ start:
 		}
 		return result
 	case 749:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19907,6 +21258,11 @@ start:
 		}
 		return result
 	case 750:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19920,6 +21276,11 @@ start:
 		}
 		return result
 	case 751:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -19933,6 +21294,11 @@ start:
 		}
 		return result
 	case 752:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_heredoc_redirect_token1
 		l.MarkEnd()
@@ -20090,6 +21456,11 @@ start:
 		l.MarkEnd()
 		return result
 	case 769:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_brace_expression_token1
 		l.MarkEnd()
@@ -20107,6 +21478,11 @@ start:
 		}
 		return result
 	case 770:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_brace_expression_token1
 		l.MarkEnd()
@@ -20333,6 +21709,11 @@ start:
 		}
 		return result
 	case 788:
+		if uint32(lookahead) < 128 && lexRun9[lookahead] {
+			l.AdvanceRun(&lexRun9, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_string_content
 		l.MarkEnd()
@@ -20387,6 +21768,11 @@ start:
 		}
 		return result
 	case 789:
+		if uint32(lookahead) < 128 && lexRun9[lookahead] {
+			l.AdvanceRun(&lexRun9, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_string_content
 		l.MarkEnd()
@@ -20438,6 +21824,11 @@ start:
 		}
 		return result
 	case 790:
+		if uint32(lookahead) < 128 && lexRun9[lookahead] {
+			l.AdvanceRun(&lexRun9, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_string_content
 		l.MarkEnd()
@@ -20476,6 +21867,11 @@ start:
 		}
 		return result
 	case 791:
+		if uint32(lookahead) < 128 && lexRun10[lookahead] {
+			l.AdvanceRun(&lexRun10, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_string_content
 		l.MarkEnd()
@@ -20489,6 +21885,11 @@ start:
 		}
 		return result
 	case 792:
+		if uint32(lookahead) < 128 && lexRun10[lookahead] {
+			l.AdvanceRun(&lexRun10, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_string_content
 		l.MarkEnd()
@@ -20596,6 +21997,11 @@ start:
 		}
 		return result
 	case 799:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -20617,6 +22023,11 @@ start:
 		}
 		return result
 	case 800:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -20671,6 +22082,11 @@ start:
 		}
 		return result
 	case 802:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -20734,6 +22150,11 @@ start:
 		}
 		return result
 	case 805:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -20751,6 +22172,11 @@ start:
 		}
 		return result
 	case 806:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -20764,6 +22190,11 @@ start:
 		}
 		return result
 	case 807:
+		if uint32(lookahead) < 128 && lexRun11[lookahead] {
+			l.AdvanceRun(&lexRun11, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -20781,6 +22212,11 @@ start:
 		}
 		return result
 	case 808:
+		if uint32(lookahead) < 128 && lexRun11[lookahead] {
+			l.AdvanceRun(&lexRun11, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_number_token1
 		l.MarkEnd()
@@ -21038,6 +22474,11 @@ start:
 		}
 		return result
 	case 837:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym__expansion_regex_token1
 		l.MarkEnd()
@@ -21214,6 +22655,11 @@ start:
 		}
 		return result
 	case 857:
+		if uint32(lookahead) < 128 && lexRun12[lookahead] {
+			l.AdvanceRun(&lexRun12, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_comment
 		l.MarkEnd()
@@ -21223,6 +22669,11 @@ start:
 		}
 		return result
 	case 858:
+		if uint32(lookahead) < 128 && lexRun13[lookahead] {
+			l.AdvanceRun(&lexRun13, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym__comment_word
 		l.MarkEnd()
@@ -21320,6 +22771,11 @@ start:
 		}
 		return result
 	case 863:
+		if uint32(lookahead) < 128 && lexRun6[lookahead] {
+			l.AdvanceRun(&lexRun6, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym__simple_variable_name_token1
 		l.MarkEnd()
@@ -21421,6 +22877,11 @@ start:
 		}
 		return result
 	case 868:
+		if uint32(lookahead) < 128 && lexRun6[lookahead] {
+			l.AdvanceRun(&lexRun6, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym__simple_variable_name_token1
 		l.MarkEnd()
@@ -21503,6 +22964,11 @@ start:
 		}
 		return result
 	case 874:
+		if uint32(lookahead) < 128 && lexRun6[lookahead] {
+			l.AdvanceRun(&lexRun6, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym__simple_variable_name_token1
 		l.MarkEnd()
@@ -25879,6 +27345,11 @@ start:
 		}
 		return result
 	case 934:
+		if uint32(lookahead) < 128 && lexRun6[lookahead] {
+			l.AdvanceRun(&lexRun6, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym__multiline_variable_name_token1
 		l.MarkEnd()
@@ -26110,6 +27581,11 @@ start:
 		}
 		return result
 	case 949:
+		if uint32(lookahead) < 128 && lexRun13[lookahead] {
+			l.AdvanceRun(&lexRun13, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_word
 		l.MarkEnd()
@@ -26381,6 +27857,11 @@ start:
 		}
 		return result
 	case 22:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '\\' {
 			skip = true
 			state = 8

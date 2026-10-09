@@ -1,11 +1,11 @@
 package gositter
 
-// DenseMismatch compares the dense small-table lookup with the C scan for
+// DenseMismatch compares the row-displacement small-table lookup with the C scan for
 // every small state and every symbol value a lookup can carry. It returns
 // the first difference, or ok.
 func (l *Language) DenseMismatch() (state, symbol uint32, built, ok bool) {
 	l.prepare()
-	built = l.smallDense != nil
+	built = l.smallBase != nil
 	if !built {
 		return 0, 0, false, true // lookup is the scan itself
 	}
@@ -20,4 +20,10 @@ func (l *Language) DenseMismatch() (state, symbol uint32, built, ok bool) {
 		}
 	}
 	return 0, 0, built, true
+}
+
+// SmallTableBytes is the size of the derived small parse table.
+func (l *Language) SmallTableBytes() int {
+	l.prepare()
+	return 4 * (len(l.smallBase) + len(l.smallComb))
 }

@@ -27,8 +27,8 @@ import (
 	"github.com/dobbo-ca/gositter/grammars/zig"
 )
 
-// The dense small parse table must answer every lookup as the C scan does,
-// for all 21 grammars. verilog is over the size cap and keeps the scan.
+// The row-displacement small parse table must answer every lookup as the C
+// scan does, for all 21 grammars.
 func TestDenseLookup(t *testing.T) {
 	langs := map[string]func() *gositter.Language{
 		"bash": bash.Language, "c": c.Language, "cpp": cpp.Language, "csharp": csharp.Language,
@@ -45,9 +45,10 @@ func TestDenseLookup(t *testing.T) {
 			if !ok {
 				t.Fatalf("state %d symbol %d: dense lookup differs from the scan", state, symbol)
 			}
-			if built != (name != "verilog") {
-				t.Errorf("dense table built = %v", built)
+			if !built {
+				t.Errorf("small table not built")
 			}
+			t.Logf("%d KiB", lang().SmallTableBytes()>>10)
 		})
 	}
 }

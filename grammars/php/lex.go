@@ -27,6 +27,134 @@ var sym_name_character_set_1_ascii = [128]bool{
 	108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true,
 }
 
+var lexRun0 = [256]bool{
+	9: true, 11: true, 12: true, 32: true,
+}
+
+var lexRun1 = [256]bool{
+	9: true, 10: true, 11: true, 12: true, 13: true, 32: true,
+}
+
+var lexRun2 = [256]bool{
+	42: true,
+}
+
+var lexRun3 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 39: true, 40: true, 41: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true,
+	50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true,
+	66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true,
+	82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true,
+	98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true,
+	114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun4 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true,
+}
+
+var lexRun5 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 65: true, 66: true, 67: true, 68: true, 69: true, 70: true,
+	97: true, 98: true, 99: true, 100: true, 101: true, 102: true,
+}
+
+var lexRun6 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 39: true, 40: true, 41: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true,
+	50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 61: true, 62: true, 63: true, 64: true, 65: true, 66: true,
+	67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true,
+	83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true,
+	99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true,
+	115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun7 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 11: true, 12: true, 14: true, 15: true, 16: true, 17: true, 18: true,
+	19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true, 34: true,
+	35: true, 36: true, 37: true, 38: true, 39: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true, 50: true,
+	51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 61: true, 62: true, 64: true, 65: true, 66: true, 67: true, 68: true,
+	69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true, 84: true,
+	85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true, 99: true, 100: true,
+	101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true,
+	117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun8 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 39: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true,
+	49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 61: true, 62: true, 63: true, 64: true, 65: true,
+	66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true,
+	82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true,
+	98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true,
+	114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun9 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true,
+}
+
+var lexRun10 = [256]bool{
+	48: true, 49: true,
+}
+
+var lexRun11 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 40: true, 41: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true, 50: true,
+	51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true, 66: true,
+	67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true,
+	83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true, 99: true,
+	100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true,
+	116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun12 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 11: true, 12: true, 14: true, 15: true, 16: true, 17: true, 18: true,
+	19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true, 34: true,
+	35: true, 36: true, 37: true, 38: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true, 50: true, 51: true,
+	52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 64: true, 65: true, 66: true, 67: true, 68: true,
+	69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true, 84: true,
+	85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true, 99: true, 100: true, 101: true,
+	102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true, 117: true,
+	118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun13 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 10: true, 11: true, 12: true, 13: true, 14: true, 15: true, 16: true,
+	17: true, 18: true, 19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true,
+	33: true, 34: true, 35: true, 36: true, 37: true, 38: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true,
+	50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 63: true, 64: true, 65: true,
+	66: true, 67: true, 68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true,
+	82: true, 83: true, 84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true,
+	99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true,
+	115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
+var lexRun14 = [256]bool{
+	10: true, 13: true,
+}
+
+var lexRun15 = [256]bool{
+	48: true, 49: true, 50: true, 51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 65: true, 66: true, 67: true, 68: true, 69: true, 70: true,
+	71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true, 84: true, 85: true, 86: true,
+	87: true, 88: true, 89: true, 90: true, 95: true, 97: true, 98: true, 99: true, 100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true,
+	108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true, 116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true,
+}
+
+var lexRun16 = [256]bool{
+	1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true, 11: true, 12: true, 14: true, 15: true, 16: true, 17: true, 18: true,
+	19: true, 20: true, 21: true, 22: true, 23: true, 24: true, 25: true, 26: true, 27: true, 28: true, 29: true, 30: true, 31: true, 32: true, 33: true, 34: true,
+	35: true, 36: true, 37: true, 38: true, 39: true, 40: true, 41: true, 42: true, 43: true, 44: true, 45: true, 46: true, 47: true, 48: true, 49: true, 50: true,
+	51: true, 52: true, 53: true, 54: true, 55: true, 56: true, 57: true, 58: true, 59: true, 60: true, 61: true, 62: true, 64: true, 65: true, 66: true, 67: true,
+	68: true, 69: true, 70: true, 71: true, 72: true, 73: true, 74: true, 75: true, 76: true, 77: true, 78: true, 79: true, 80: true, 81: true, 82: true, 83: true,
+	84: true, 85: true, 86: true, 87: true, 88: true, 89: true, 90: true, 91: true, 92: true, 93: true, 94: true, 95: true, 96: true, 97: true, 98: true, 99: true,
+	100: true, 101: true, 102: true, 103: true, 104: true, 105: true, 106: true, 107: true, 108: true, 109: true, 110: true, 111: true, 112: true, 113: true, 114: true, 115: true,
+	116: true, 117: true, 118: true, 119: true, 120: true, 121: true, 122: true, 123: true, 124: true, 125: true, 126: true, 127: true,
+}
+
 // ts_lex
 func lex(l *gositter.Lexer, state gositter.StateID) bool {
 	result := false
@@ -291,6 +419,11 @@ start:
 		}
 		return result
 	case 4:
+		if uint32(lookahead) < 128 && lexRun0[lookahead] {
+			l.AdvanceRun(&lexRun0, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '\n':
 			state = 197
@@ -330,6 +463,11 @@ start:
 		}
 		return result
 	case 5:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 147
@@ -488,6 +626,11 @@ start:
 		}
 		return result
 	case 6:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 146
@@ -616,6 +759,11 @@ start:
 		}
 		return result
 	case 7:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 146
@@ -756,6 +904,11 @@ start:
 		}
 		return result
 	case 8:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 146
@@ -963,6 +1116,11 @@ start:
 		}
 		return result
 	case 10:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 37
@@ -1151,6 +1309,11 @@ start:
 		}
 		return result
 	case 12:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 37
@@ -1239,6 +1402,11 @@ start:
 		}
 		return result
 	case 13:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 37
@@ -1343,6 +1511,11 @@ start:
 		}
 		return result
 	case 14:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '!':
 			state = 37
@@ -1441,6 +1614,11 @@ start:
 		}
 		return result
 	case 16:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '"':
 			state = 181
@@ -1511,6 +1689,11 @@ start:
 		}
 		return result
 	case 17:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 290
@@ -1557,6 +1740,11 @@ start:
 		}
 		return result
 	case 18:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 290
 			goto next_state
@@ -1671,6 +1859,11 @@ start:
 		}
 		return result
 	case 21:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 291
@@ -1726,6 +1919,11 @@ start:
 		}
 		return result
 	case 22:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 291
@@ -1763,6 +1961,11 @@ start:
 		}
 		return result
 	case 23:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 291
 			goto next_state
@@ -1837,6 +2040,11 @@ start:
 		}
 		return result
 	case 25:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '#' {
 			state = 291
 			goto next_state
@@ -1868,6 +2076,11 @@ start:
 		}
 		return result
 	case 26:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case '#':
 			state = 291
@@ -1975,6 +2188,11 @@ start:
 		}
 		return result
 	case 29:
+		if uint32(lookahead) < 128 && lexRun2[lookahead] {
+			l.AdvanceRun(&lexRun2, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '*' {
 			state = 29
 			goto next_state
@@ -1989,6 +2207,11 @@ start:
 		}
 		return result
 	case 30:
+		if uint32(lookahead) < 128 && lexRun3[lookahead] {
+			l.AdvanceRun(&lexRun3, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '*' {
 			state = 29
 			goto next_state
@@ -2005,6 +2228,11 @@ start:
 		}
 		return result
 	case 32:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '.' {
 			state = 126
 			goto next_state
@@ -2115,6 +2343,11 @@ start:
 		}
 		return result
 	case 45:
+		if uint32(lookahead) < 128 && lexRun5[lookahead] {
+			l.AdvanceRun(&lexRun5, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if lookahead == '}' {
 			state = 174
 			goto next_state
@@ -2305,6 +2538,11 @@ start:
 		}
 		return result
 	case 74:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 79
 			goto next_state
@@ -2491,6 +2729,11 @@ start:
 		}
 		return result
 	case 75:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 79
 			goto next_state
@@ -2638,6 +2881,11 @@ start:
 		}
 		return result
 	case 76:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 79
 			goto next_state
@@ -2746,6 +2994,11 @@ start:
 		}
 		return result
 	case 77:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 79
 			goto next_state
@@ -2820,6 +3073,11 @@ start:
 		}
 		return result
 	case 78:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		if eof {
 			state = 79
 			goto next_state
@@ -2932,6 +3190,11 @@ start:
 		}
 		return result
 	case 86:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_text_token2
 		l.MarkEnd()
@@ -2978,6 +3241,11 @@ start:
 		}
 		return result
 	case 88:
+		if uint32(lookahead) < 128 && lexRun2[lookahead] {
+			l.AdvanceRun(&lexRun2, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_text_token2
 		l.MarkEnd()
@@ -2995,6 +3263,11 @@ start:
 		}
 		return result
 	case 89:
+		if uint32(lookahead) < 128 && lexRun6[lookahead] {
+			l.AdvanceRun(&lexRun6, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_text_token2
 		l.MarkEnd()
@@ -3021,6 +3294,11 @@ start:
 		}
 		return result
 	case 91:
+		if uint32(lookahead) < 128 && lexRun7[lookahead] {
+			l.AdvanceRun(&lexRun7, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_text_token2
 		l.MarkEnd()
@@ -3051,6 +3329,11 @@ start:
 		}
 		return result
 	case 93:
+		if uint32(lookahead) < 128 && lexRun8[lookahead] {
+			l.AdvanceRun(&lexRun8, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_text_token2
 		l.MarkEnd()
@@ -3344,6 +3627,11 @@ start:
 		}
 		return result
 	case 126:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_float
 		l.MarkEnd()
@@ -3361,6 +3649,11 @@ start:
 		}
 		return result
 	case 127:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_float
 		l.MarkEnd()
@@ -3378,6 +3671,11 @@ start:
 		}
 		return result
 	case 128:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_float
 		l.MarkEnd()
@@ -3438,6 +3736,11 @@ start:
 		}
 		return result
 	case 130:
+		if uint32(lookahead) < 128 && lexRun9[lookahead] {
+			l.AdvanceRun(&lexRun9, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_integer
 		l.MarkEnd()
@@ -3463,6 +3766,11 @@ start:
 		}
 		return result
 	case 131:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_integer
 		l.MarkEnd()
@@ -3484,6 +3792,11 @@ start:
 		}
 		return result
 	case 132:
+		if uint32(lookahead) < 128 && lexRun10[lookahead] {
+			l.AdvanceRun(&lexRun10, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_integer
 		l.MarkEnd()
@@ -3497,6 +3810,11 @@ start:
 		}
 		return result
 	case 133:
+		if uint32(lookahead) < 128 && lexRun5[lookahead] {
+			l.AdvanceRun(&lexRun5, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_integer
 		l.MarkEnd()
@@ -3535,6 +3853,11 @@ start:
 		}
 		return result
 	case 135:
+		if uint32(lookahead) < 128 && lexRun9[lookahead] {
+			l.AdvanceRun(&lexRun9, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_integer
 		l.MarkEnd()
@@ -3548,6 +3871,11 @@ start:
 		}
 		return result
 	case 136:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_integer
 		l.MarkEnd()
@@ -3903,6 +4231,11 @@ start:
 		}
 		return result
 	case 187:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_string_content_token1
 		l.MarkEnd()
@@ -3945,6 +4278,11 @@ start:
 		}
 		return result
 	case 189:
+		if uint32(lookahead) < 128 && lexRun2[lookahead] {
+			l.AdvanceRun(&lexRun2, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_string_content_token1
 		l.MarkEnd()
@@ -3962,6 +4300,11 @@ start:
 		}
 		return result
 	case 190:
+		if uint32(lookahead) < 128 && lexRun11[lookahead] {
+			l.AdvanceRun(&lexRun11, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_string_content_token1
 		l.MarkEnd()
@@ -3988,6 +4331,11 @@ start:
 		}
 		return result
 	case 192:
+		if uint32(lookahead) < 128 && lexRun12[lookahead] {
+			l.AdvanceRun(&lexRun12, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_string_content_token1
 		l.MarkEnd()
@@ -4018,6 +4366,11 @@ start:
 		}
 		return result
 	case 194:
+		if uint32(lookahead) < 128 && lexRun13[lookahead] {
+			l.AdvanceRun(&lexRun13, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = aux_sym_string_content_token1
 		l.MarkEnd()
@@ -4037,6 +4390,11 @@ start:
 		l.MarkEnd()
 		return result
 	case 197:
+		if uint32(lookahead) < 128 && lexRun14[lookahead] {
+			l.AdvanceRun(&lexRun14, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym__new_line
 		l.MarkEnd()
@@ -4454,6 +4812,11 @@ start:
 		}
 		return result
 	case 242:
+		if uint32(lookahead) < 128 && lexRun4[lookahead] {
+			l.AdvanceRun(&lexRun4, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_name
 		l.MarkEnd()
@@ -5059,6 +5422,11 @@ start:
 		}
 		return result
 	case 287:
+		if uint32(lookahead) < 128 && lexRun15[lookahead] {
+			l.AdvanceRun(&lexRun15, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_name
 		l.MarkEnd()
@@ -5073,6 +5441,11 @@ start:
 		l.MarkEnd()
 		return result
 	case 289:
+		if uint32(lookahead) < 128 && lexRun16[lookahead] {
+			l.AdvanceRun(&lexRun16, false)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		result = true
 		l.ResultSymbol = sym_comment
 		l.MarkEnd()
@@ -5128,6 +5501,11 @@ start:
 	_, _ = eof, lookahead
 	switch state {
 	case 0:
+		if uint32(lookahead) < 128 && lexRun1[lookahead] {
+			l.AdvanceRun(&lexRun1, true)
+			lookahead = l.Lookahead
+			eof = l.EOF()
+		}
 		switch lookahead {
 		case 'A':
 			state = 1

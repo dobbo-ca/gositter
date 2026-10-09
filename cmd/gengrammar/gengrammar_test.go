@@ -77,6 +77,9 @@ func TestParse(t *testing.T) {
 		"var set_1_ascii = [128]bool{\n\t97: true, 98: true,", // a-z
 		"\t\tif lookahead != 0 && (lookahead < '(' || ')' < lookahead) {",
 		"\tcase 1:\n\t\tresult = true\n\t\tl.ResultSymbol = ts_builtin_sym_end\n\t\tl.MarkEnd()\n\t\treturn result\n\tdefault:\n\t\treturn false",
+		// State 0 skips blanks on itself: one run table, used before its statements.
+		"var lexRun0 = [256]bool{\n\t9: true, 10: true, 11: true, 12: true, 13: true, 32: true,\n}",
+		"\tcase 0:\n\t\tif uint32(lookahead) < 128 && lexRun0[lookahead] {\n\t\t\tl.AdvanceRun(&lexRun0, true)\n\t\t\tlookahead = l.Lookahead\n\t\t\teof = l.EOF()\n\t\t}\n\t\tif eof {",
 	} {
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("lex.go lacks %q\n%s", want, b.String())

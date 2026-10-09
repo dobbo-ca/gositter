@@ -11,19 +11,53 @@ import (
 	"testing"
 
 	"github.com/dobbo-ca/gositter"
+	"github.com/dobbo-ca/gositter/grammars/bash"
 	"github.com/dobbo-ca/gositter/grammars/c"
+	"github.com/dobbo-ca/gositter/grammars/cpp"
+	"github.com/dobbo-ca/gositter/grammars/csharp"
 	"github.com/dobbo-ca/gositter/grammars/golang"
+	"github.com/dobbo-ca/gositter/grammars/hcl"
 	"github.com/dobbo-ca/gositter/grammars/java"
+	"github.com/dobbo-ca/gositter/grammars/javascript"
 	"github.com/dobbo-ca/gositter/grammars/json"
+	"github.com/dobbo-ca/gositter/grammars/julia"
+	"github.com/dobbo-ca/gositter/grammars/kotlin"
+	"github.com/dobbo-ca/gositter/grammars/lua"
+	"github.com/dobbo-ca/gositter/grammars/php"
 	"github.com/dobbo-ca/gositter/grammars/python"
+	"github.com/dobbo-ca/gositter/grammars/ruby"
+	"github.com/dobbo-ca/gositter/grammars/rust"
+	"github.com/dobbo-ca/gositter/grammars/scala"
+	"github.com/dobbo-ca/gositter/grammars/tsx"
+	"github.com/dobbo-ca/gositter/grammars/typescript"
 	"github.com/dobbo-ca/gositter/grammars/verilog"
 	"github.com/dobbo-ca/gositter/grammars/zig"
 	"github.com/dobbo-ca/gositter/internal/treedump"
 )
 
+// Keys are the directory names under testdata/regress.
 var regressLangs = map[string]func() *gositter.Language{
-	"c": c.Language, "go": golang.Language, "java": java.Language, "json": json.Language,
-	"python": python.Language, "verilog": verilog.Language, "zig": zig.Language,
+	"bash":       bash.Language,
+	"c":          c.Language,
+	"cpp":        cpp.Language,
+	"c-sharp":    csharp.Language,
+	"go":         golang.Language,
+	"hcl":        hcl.Language,
+	"java":       java.Language,
+	"javascript": javascript.Language,
+	"json":       json.Language,
+	"julia":      julia.Language,
+	"kotlin":     kotlin.Language,
+	"lua":        lua.Language,
+	"php":        php.Language,
+	"python":     python.Language,
+	"ruby":       ruby.Language,
+	"rust":       rust.Language,
+	"scala":      scala.Language,
+	"tsx":        tsx.Language,
+	"typescript": typescript.Language,
+	"verilog":    verilog.Language,
+	"zig":        zig.Language,
 }
 
 // Replays testdata/regress/<grammar>/<file> against <file>.dump.gz, the dump

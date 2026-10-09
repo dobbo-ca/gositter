@@ -137,8 +137,17 @@ func (sp *subtreePool) allocate() uint32 {
 		sp.freeTrees = sp.freeTrees[:n-1]
 		return i
 	}
-	sp.heap = append(sp.heap, subtreeHeap{})
-	return uint32(len(sp.heap) - 1)
+	// Every caller overwrites the whole entry, so a reused slot is not
+	// zeroed. The slab doubles: append would grow a large one by a quarter
+	// and copy it four times as often.
+	n := len(sp.heap)
+	if n == cap(sp.heap) {
+		grown := make([]subtreeHeap, n, 2*n)
+		copy(grown, sp.heap)
+		sp.heap = grown
+	}
+	sp.heap = sp.heap[:n+1]
+	return uint32(n)
 }
 
 // ts_subtree_pool_free. C caps the pool at TS_MAX_TREE_POOL_SIZE and frees
@@ -741,91 +750,134 @@ func (sp *subtreePool) compress(self subtree, count uint32, lang *Language, stac
 }
 
 // ts_subtree_summarize_children. Allocates nothing, so h and children stay
-// valid throughout.
+// valid throughout. Each child is decoded once (inline bits or one heap
+// load) and the sums are kept in locals; the C accessor calls it replaces
+// are named at each line.
 func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 	h := sp.ptr(self)
 
-	h.namedChildCount = 0
-	h.visibleChildCount = 0
-	h.errorCost = 0
+	var namedChildCount, visibleChildCount, errorCost, visibleDescendantCount uint32
+	var dynamicPrecedence int32
+	flags := h.flags &^ (fHasExternalTokens | fDependsOnColumn | fHasExternalScannerStateChange)
 	h.repeatDepth = 0
-	h.visibleDescendantCount = 0
-	h.flags &^= fHasExternalTokens | fDependsOnColumn | fHasExternalScannerStateChange
-	h.dynamicPrecedence = 0
 
 	structuralIndex := uint32(0)
 	aliasSequence := lang.aliasSequence(uint32(h.productionID))
 	lookaheadEndByte := uint32(0)
 	selfIsError := h.symbol == SymbolError || h.symbol == SymbolErrorRepeat
+	// Not zero: C tests the old size.extent.row before the first child sets
+	// it, and a node without children keeps both.
+	padding, size := h.padding, h.size
 
+	heap := sp.heap
 	children := sp.children[h.children : h.children+h.childCount]
 	for i, child := range children {
-		if h.size.extent.Row == 0 && sp.dependsOnColumn(child) {
-			h.flags |= fDependsOnColumn
-		}
+		// The child's fields, as ts_subtree_* would return them.
+		var (
+			cPadding, cSize          length
+			cLookaheadBytes          uint32
+			cSymbol                  Symbol
+			cErrorCost               uint32
+			grandchildCount          uint32
+			cVisibleChildCount       uint32
+			cNamedChildCount         uint32
+			cVisibleDescendantCount  uint32
+			cDynamicPrecedence       int32
+			childExtra, childVisible bool
+			childNamed               bool
+		)
+		if child.isInline() {
+			n := uint32(uint8(child >> inlSizeBytesShift))
+			cPadding = length{
+				uint32(uint8(child >> inlPaddingBytesShift)),
+				Point{uint32(child>>inlPaddingRowsShift) & 0xF, uint32(uint8(child >> inlPaddingColumnsShift))},
+			}
+			cSize = length{n, Point{0, n}}
+			cLookaheadBytes = uint32(child>>inlLookaheadBytesShift) & 0xF
+			cSymbol = Symbol(uint8(child >> inlSymbolShift))
+			if child&inlIsMissing != 0 {
+				cErrorCost = errorCostPerMissingTree + errorCostPerRecovery
+			}
+			childExtra = child&inlExtra != 0
+			childVisible = child&inlVisible != 0
+			childNamed = child&inlNamed != 0
+		} else {
+			ch := &heap[child>>1]
+			cf := ch.flags
+			if size.extent.Row == 0 && cf&fDependsOnColumn != 0 {
+				flags |= fDependsOnColumn
+			}
+			flags |= cf & (fHasExternalScannerStateChange | fHasExternalTokens)
 
-		if sp.hasExternalScannerStateChange(child) {
-			h.flags |= fHasExternalScannerStateChange
+			cPadding = ch.padding
+			cSize = ch.size
+			cLookaheadBytes = ch.lookaheadBytes
+			cSymbol = ch.symbol
+			cErrorCost = ch.errorCost
+			if cf&fIsMissing != 0 {
+				cErrorCost = errorCostPerMissingTree + errorCostPerRecovery
+			}
+			grandchildCount = ch.childCount
+			if grandchildCount > 0 {
+				cVisibleChildCount = ch.visibleChildCount
+				cNamedChildCount = ch.namedChildCount
+				cVisibleDescendantCount = ch.visibleDescendantCount
+				cDynamicPrecedence = ch.dynamicPrecedence
+			}
+			childExtra = cf&fExtra != 0
+			childVisible = cf&fVisible != 0
+			childNamed = cf&fNamed != 0
+
+			if cSymbol == SymbolError {
+				flags |= fFragileLeft | fFragileRight
+				h.parseState = treeStateNone
+			}
 		}
 
 		if i == 0 {
-			h.padding = sp.padding(child)
-			h.size = sp.size(child)
+			padding = cPadding
+			size = cSize
 		} else {
-			h.size = lengthAdd(h.size, sp.totalSize(child))
+			size = lengthAdd(size, lengthAdd(cPadding, cSize))
 		}
 
-		childLookaheadEndByte := h.padding.bytes + h.size.bytes + sp.lookaheadBytes(child)
+		childLookaheadEndByte := padding.bytes + size.bytes + cLookaheadBytes
 		if childLookaheadEndByte > lookaheadEndByte {
 			lookaheadEndByte = childLookaheadEndByte
 		}
 
-		childSymbol := sp.symbol(child)
-		if childSymbol != SymbolErrorRepeat {
-			h.errorCost += sp.errorCost(child)
+		if cSymbol != SymbolErrorRepeat {
+			errorCost += cErrorCost
 		}
 
-		grandchildCount := sp.childCount(child)
-		childExtra := sp.extra(child)
-		childVisible := sp.visible(child)
 		if selfIsError {
-			if !childExtra && !(childSymbol == SymbolError && grandchildCount == 0) {
+			if !childExtra && !(cSymbol == SymbolError && grandchildCount == 0) {
 				if childVisible {
-					h.errorCost += errorCostPerSkippedTree
+					errorCost += errorCostPerSkippedTree
 				} else if grandchildCount > 0 {
-					h.errorCost += errorCostPerSkippedTree * sp.ptr(child).visibleChildCount
+					errorCost += errorCostPerSkippedTree * cVisibleChildCount
 				}
 			}
 		}
 
-		h.dynamicPrecedence += sp.dynamicPrecedence(child)
-		h.visibleDescendantCount += sp.visibleDescendantCount(child)
+		dynamicPrecedence += cDynamicPrecedence
+		visibleDescendantCount += cVisibleDescendantCount
 
 		if aliasSequence != nil && aliasSequence[structuralIndex] != 0 && !childExtra {
-			h.visibleDescendantCount++
-			h.visibleChildCount++
+			visibleDescendantCount++
+			visibleChildCount++
 			if lang.symbolMetadata(aliasSequence[structuralIndex]).Named {
-				h.namedChildCount++
+				namedChildCount++
 			}
 		} else if childVisible {
-			h.visibleDescendantCount++
-			h.visibleChildCount++
-			if sp.named(child) {
-				h.namedChildCount++
+			visibleDescendantCount++
+			visibleChildCount++
+			if childNamed {
+				namedChildCount++
 			}
 		} else if grandchildCount > 0 {
-			ch := sp.ptr(child)
-			h.visibleChildCount += ch.visibleChildCount
-			h.namedChildCount += ch.namedChildCount
-		}
-
-		if sp.hasExternalTokens(child) {
-			h.flags |= fHasExternalTokens
-		}
-
-		if childSymbol == SymbolError {
-			h.flags |= fFragileLeft | fFragileRight
-			h.parseState = treeStateNone
+			visibleChildCount += cVisibleChildCount
+			namedChildCount += cNamedChildCount
 		}
 
 		if !childExtra {
@@ -833,13 +885,20 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 		}
 	}
 
-	h.lookaheadBytes = lookaheadEndByte - h.size.bytes - h.padding.bytes
+	h.padding = padding
+	h.size = size
+	h.namedChildCount = namedChildCount
+	h.visibleChildCount = visibleChildCount
+	h.visibleDescendantCount = visibleDescendantCount
+	h.dynamicPrecedence = dynamicPrecedence
+	h.lookaheadBytes = lookaheadEndByte - size.bytes - padding.bytes
 
 	if selfIsError {
-		h.errorCost += errorCostPerRecovery +
-			errorCostPerSkippedChar*h.size.bytes +
-			errorCostPerSkippedLine*h.size.extent.Row
+		errorCost += errorCostPerRecovery +
+			errorCostPerSkippedChar*size.bytes +
+			errorCostPerSkippedLine*size.extent.Row
 	}
+	h.errorCost = errorCost
 
 	if h.childCount > 0 {
 		firstChild := children[0]
@@ -849,14 +908,14 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 		h.firstLeafParseState = sp.leafParseState(firstChild)
 
 		if sp.fragileLeft(firstChild) {
-			h.flags |= fFragileLeft
+			flags |= fFragileLeft
 		}
 		if sp.fragileRight(lastChild) {
-			h.flags |= fFragileRight
+			flags |= fFragileRight
 		}
 
 		if h.childCount >= 2 &&
-			h.flags&(fVisible|fNamed) == 0 &&
+			flags&(fVisible|fNamed) == 0 &&
 			sp.symbol(firstChild) == h.symbol {
 			if sp.repeatDepth(firstChild) > sp.repeatDepth(lastChild) {
 				h.repeatDepth = uint16(sp.repeatDepth(firstChild) + 1)
@@ -865,6 +924,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 			}
 		}
 	}
+	h.flags = flags
 }
 
 // ts_subtree_new_node. Takes ownership of the children region. C puts the

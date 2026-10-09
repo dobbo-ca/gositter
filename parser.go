@@ -768,6 +768,73 @@ func (p *Parser) reduce(
 	return stackVersionNone
 }
 
+// ts_parser__reduce followed by the ts_stack_renumber_version of
+// ts_parser__advance, for the last action of a table entry when this version
+// owns an unbranched chain and the reduced version could not merge with
+// another one. The general path would pop one slice into a new version, fail
+// every ts_stack_merge, and move that version back over this one. Reports
+// false and changes nothing if the stack is not of that shape.
+func (p *Parser) reduceInPlace(
+	version uint32, symbol Symbol, count uint32,
+	dynamicPrecedence int32, productionID uint16,
+	isFragile, endOfNonTerminalExtra bool,
+) bool {
+	sp := &p.pool
+	s := &p.stack
+	versionCount := s.versionCount()
+	if versionCount > maxVersionCount+maxVersionCountOverflow ||
+		s.heads[version].lookaheadWhenPaused != nullSubtree {
+		return false
+	}
+	children, trailing, below, ok := s.popLinear(version, count)
+	if !ok {
+		return false
+	}
+	state := s.nodes[below].state
+	nextState := p.language.nextState(state, symbol)
+
+	// ts_stack_can_merge needs the state and byte position of the new head.
+	// Both are known now: popping and pushing the same subtrees leaves the
+	// position where it is.
+	if versionCount > 1 {
+		position := s.nodes[s.heads[version].node].position.bytes
+		for j := range s.heads {
+			node := &s.nodes[s.heads[j].node]
+			if uint32(j) != version && node.state == nextState && node.position.bytes == position {
+				s.undoPopLinear(children)
+				return false
+			}
+		}
+	}
+	s.heads[version].node = below
+
+	// ts_subtree_array_remove_trailing_extras: they are the last trailing
+	// subtrees of the slice.
+	children.size -= trailing
+	p.trailingExtras = append(p.trailingExtras[:0],
+		sp.children[children.off+children.size:children.off+children.size+trailing]...)
+
+	parent := sp.newNode(symbol, &children, uint32(productionID), p.language)
+
+	h := sp.ptr(parent)
+	if endOfNonTerminalExtra && nextState == state {
+		h.flags |= fExtra
+	}
+	if isFragile || versionCount > 1 {
+		h.flags |= fFragileLeft | fFragileRight
+		h.parseState = treeStateNone
+	} else {
+		h.parseState = state
+	}
+	h.dynamicPrecedence += dynamicPrecedence
+
+	s.push(version, parent, false, nextState)
+	for _, t := range p.trailingExtras {
+		s.push(version, t, false, nextState)
+	}
+	return true
+}
+
 // ts_parser__accept
 func (p *Parser) accept(version uint32, lookahead subtree) {
 	sp := &p.pool
@@ -1277,6 +1344,14 @@ func (p *Parser) advance(version uint32) bool {
 					p.log(p.lb().s("reduce sym:").s(p.symName(action.Symbol)).
 						s(", child_count:").u(uint32(action.ChildCount)))
 				}
+				if i == len(actions)-1 && p.reduceInPlace(
+					version, action.Symbol, uint32(action.ChildCount),
+					int32(action.DynamicPrecedence), action.ProductionID,
+					isFragile, endOfNonTerminalExtra,
+				) {
+					lastReductionVersion = version
+					break
+				}
 				reductionVersion := p.reduce(
 					version, action.Symbol, uint32(action.ChildCount),
 					int32(action.DynamicPrecedence), action.ProductionID,
@@ -1372,6 +1447,17 @@ func (p *Parser) advance(version uint32) bool {
 func (p *Parser) condenseStack() uint32 {
 	madeChanges := false
 	minErrorCost := ^uint32(0)
+
+	// One active version: nothing below prunes, compares, merges or resumes
+	// it. ts_parser__version_status is still called, because
+	// ts_stack_node_count_since_error can lower node_count_at_last_error.
+	if p.stack.versionCount() == 1 && p.stack.isActive(0) {
+		if status := p.versionStatus(0); !status.isInError {
+			minErrorCost = status.cost
+		}
+		return minErrorCost
+	}
+
 	for i := uint32(0); i < p.stack.versionCount(); i++ {
 		// Prune any versions that have been marked for removal.
 		if p.stack.isHalted(i) {

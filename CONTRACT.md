@@ -159,6 +159,7 @@ inline. There is no interface and no function-pointer field.
 | `lexer->is_at_included_range_start(lexer)` | `l.IsAtIncludedRangeStart() bool` |
 | `lexer->eof(lexer)` | `l.EOF() bool` |
 | `lexer->log(...)` | not ported; no scanner in the 21 grammars calls it |
+| none | `l.AdvanceRun(set, skip)`, generated lex functions only (section 6) |
 
 Semantics the runtime must keep, taken from `lexer.c`:
 
@@ -277,6 +278,24 @@ Details:
 - C character literals that are not valid Go rune literals are emitted as
   numbers: `'\0'`, `'\"'`, `'\?'`, `'\e'`, octal with fewer than 3 digits.
   The generator may emit every literal as a number if that is simpler.
+- Self-loops. For each state the generator finds the ASCII characters whose
+  first matching statement is `ADVANCE(self)` (or `SKIP(self)`), by
+  evaluating the state's conditions for code points 1 to 127 with `eof`
+  false (`cmd/gengrammar/run.go`). If there are any, the case starts with
+
+  ```go
+  if uint32(lookahead) < 128 && lexRunN[lookahead] {
+  	l.AdvanceRun(&lexRunN, false) // true for a SKIP run
+  	lookahead = l.Lookahead
+  	eof = l.EOF()
+  }
+  ```
+
+  and the statements follow unchanged. `AdvanceRun(set, skip)` is defined as
+  `Advance(skip)` repeated while `Lookahead` is an ASCII character in `set`,
+  so the state's statements run on the first character after the run, as
+  they would in C after the last trip through the loop. `lexRunN` is a
+  `[256]bool` with entries 0 and 128 to 255 false; equal sets share a table.
 - If a function never uses `skip`, keep the prologue anyway. The `_, _ =`
   line is there so unused `eof` or `lookahead` still compiles.
 - The generated code holds no state between calls and never allocates.

@@ -166,3 +166,90 @@ func TestLexerResetBackwards(t *testing.T) {
 		t.Fatalf("eof=%v lookahead=%q", l.EOF(), l.Lookahead)
 	}
 }
+
+// advanceRunRef is the definition of AdvanceRun: Advance, one character at
+// a time.
+func advanceRunRef(l *Lexer, set *[256]bool, skip bool) {
+	for uint32(l.Lookahead) < 128 && set[l.Lookahead] && l.hasChunk {
+		l.Advance(skip)
+	}
+}
+
+// Everything a lex function or the parser can see of a lexer.
+func lexerSnapshot(l *Lexer) [16]uint32 {
+	b := func(v bool) uint32 {
+		if v {
+			return 1
+		}
+		return 0
+	}
+	return [16]uint32{
+		uint32(l.Lookahead), l.lookaheadSize, b(l.hasChunk), b(l.EOF()),
+		l.currentPosition.bytes, l.currentPosition.extent.Row, l.currentPosition.extent.Column,
+		l.tokenStartPosition.bytes, l.tokenStartPosition.extent.Row, l.tokenStartPosition.extent.Column,
+		l.columnData.value, b(l.columnData.valid), l.chunkStart, l.chunkSize, l.GetColumn(),
+	}
+}
+
+func checkAdvanceRun(t *testing.T, src []byte, set *[256]bool, start int, skip, columnValid bool) {
+	t.Helper()
+	var ls [2]*Lexer
+	for i := range ls {
+		l := newTestLexer(string(src))
+		for l.currentPosition.bytes < uint32(start) && l.hasChunk {
+			l.Advance(false)
+		}
+		if !columnValid {
+			l.invalidateColumnData()
+		}
+		ls[i] = l
+	}
+	advanceRunRef(ls[0], set, skip)
+	ls[1].AdvanceRun(set, skip)
+	if want, got := lexerSnapshot(ls[0]), lexerSnapshot(ls[1]); got != want {
+		t.Fatalf("src %q start %d skip %v:\n got %v\nwant %v", src, start, skip, got, want)
+	}
+}
+
+func TestAdvanceRun(t *testing.T) {
+	var ident, blank, notQuote [256]bool
+	for c := 1; c < 128; c++ {
+		ident[c] = c == '_' || '0' <= c && c <= '9' || 'a' <= c && c <= 'z'
+		blank[c] = c == ' ' || '\t' <= c && c <= '\r'
+		notQuote[c] = c != '"'
+	}
+	srcs := []string{
+		"", "a", "abc", "abc def", "  \n\t x", "\n\n\n", "ab\n", "abc\xc3\xa9def", "ab\xffcd",
+		"\xef\xbb\xbfabc", "a\x00b", "line one\nline two\r\n  three\"x", "é\nabc", "abc\n\xe2\x82",
+	}
+	for _, src := range srcs {
+		for _, set := range []*[256]bool{&ident, &blank, &notQuote} {
+			for start := 0; start <= len(src); start++ {
+				for _, skip := range []bool{false, true} {
+					checkAdvanceRun(t, []byte(src), set, start, skip, true)
+					checkAdvanceRun(t, []byte(src), set, start, skip, false)
+				}
+			}
+		}
+	}
+}
+
+func FuzzAdvanceRun(f *testing.F) {
+	f.Add([]byte("ab cd\n  ef\xc3\xa9 \"g\"\n"), uint8(0), uint8(3), true)
+	f.Fuzz(func(t *testing.T, src []byte, which, start uint8, skip bool) {
+		var set [256]bool
+		for c := 1; c < 128; c++ {
+			switch which % 4 {
+			case 0:
+				set[c] = c == ' ' || '\t' <= c && c <= '\r'
+			case 1:
+				set[c] = c != '\n' && c != '"'
+			case 2:
+				set[c] = c&1 == 0
+			default:
+				set[c] = true
+			}
+		}
+		checkAdvanceRun(t, src, &set, int(start)%(len(src)+1), skip, which&4 == 0)
+	})
+}

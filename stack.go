@@ -10,23 +10,24 @@ const (
 	stackVersionNone = ^uint32(0) // STACK_VERSION_NONE
 )
 
-// StackLink
+// StackLink. Field order differs from C: 16 bytes instead of 24.
 type stackLink struct {
-	node      uint32
 	subtree   subtree
+	node      uint32
 	isPending bool
 }
 
-// StackNode
+// StackNode. Field order differs from C: everything but links[1:] sits in
+// the first 48 bytes, and most nodes have one link.
 type stackNode struct {
 	state             StateID
-	position          length
-	links             [maxLinkCount]stackLink
 	linkCount         uint16
 	refCount          uint32
 	errorCost         uint32
 	nodeCount         uint32
 	dynamicPrecedence int32
+	position          length
+	links             [maxLinkCount]stackLink
 }
 
 // StackIterator
@@ -195,11 +196,35 @@ func (s *stack) nodeNew(previousNode uint32, t subtree, isPending bool, state St
 		node.dynamicPrecedence = prev.dynamicPrecedence
 		node.nodeCount = prev.nodeCount
 
-		if t != nullSubtree {
-			node.errorCost += s.sp.errorCost(t)
+		// ts_subtree_error_cost, ts_subtree_total_size,
+		// stack__subtree_node_count and ts_subtree_dynamic_precedence, with
+		// the subtree decoded once.
+		if t.isInline() {
+			if t&inlIsMissing != 0 {
+				node.errorCost += errorCostPerMissingTree + errorCostPerRecovery
+			}
 			node.position = lengthAdd(node.position, s.sp.totalSize(t))
-			node.nodeCount += s.subtreeNodeCount(t)
-			node.dynamicPrecedence += s.sp.dynamicPrecedence(t)
+			if t&inlVisible != 0 {
+				node.nodeCount++
+			}
+		} else if t != nullSubtree {
+			h := s.sp.ptr(t)
+			if h.flags&fIsMissing != 0 {
+				node.errorCost += errorCostPerMissingTree + errorCostPerRecovery
+			} else {
+				node.errorCost += h.errorCost
+			}
+			node.position = lengthAdd(node.position, lengthAdd(h.padding, h.size))
+			if h.childCount > 0 {
+				node.nodeCount += h.visibleDescendantCount
+				node.dynamicPrecedence += h.dynamicPrecedence
+			}
+			if h.flags&fVisible != 0 {
+				node.nodeCount++
+			}
+			if h.symbol == SymbolErrorRepeat {
+				node.nodeCount++
+			}
 		}
 	}
 
@@ -626,6 +651,54 @@ func (s *stack) push(version uint32, t subtree, pending bool, state StateID) {
 func (s *stack) popCount(version uint32, count uint32) []stackSlice {
 	s.goalSubtreeCount = count
 	return s.iter(version, cbPopCount, int(count))
+}
+
+// ts_stack_pop_count for a head that owns an unbranched chain: every node
+// down to the goal has one link and one owner. Then the general pop yields
+// one slice, and once the caller has moved the new version over this one,
+// exactly these nodes have been freed. So the subtrees move to the slice
+// without retain and release and the nodes go back to the pool.
+//
+// popLinear does all of that except moving the head: the caller checks that
+// the new version cannot merge and then either sets the head to below or
+// calls undoPopLinear. trailing counts the extras on top of the stack, which
+// ts_subtree_array_remove_trailing_extras would find at the end of the
+// slice. Reports false, with nothing changed, if the chain is not of that
+// shape.
+func (s *stack) popLinear(version uint32, count uint32) (subtrees subtreeArray, trailing, below uint32, ok bool) {
+	sp := s.sp
+	mark, poolMark := len(sp.children), len(s.nodePool)
+	below = s.heads[version].node
+	for counted := uint32(0); counted < count; {
+		node := &s.nodes[below]
+		link := &node.links[0]
+		if node.linkCount != 1 || node.refCount != 1 || link.subtree == nullSubtree {
+			sp.children = sp.children[:mark]
+			s.nodePool = s.nodePool[:poolMark]
+			return subtreeArray{}, 0, 0, false
+		}
+		if !sp.extra(link.subtree) {
+			counted++
+		} else if counted == 0 {
+			trailing++
+		}
+		sp.children[sp.allocChildren(1)] = link.subtree
+		s.nodePool = append(s.nodePool, below)
+		below = link.node
+	}
+	if n := uint32(len(sp.children) - mark); n > 0 {
+		subtrees = subtreeArray{off: uint32(mark), size: n, cap: n}
+		subtreeSliceReverse(sp.children[mark:])
+	}
+	return subtrees, trailing, below, true
+}
+
+// undoPopLinear takes back a popLinear whose head was not moved.
+func (s *stack) undoPopLinear(subtrees subtreeArray) {
+	if subtrees.size > 0 {
+		s.sp.children = s.sp.children[:subtrees.off]
+	}
+	s.nodePool = s.nodePool[:uint32(len(s.nodePool))-subtrees.size]
 }
 
 // ts_stack_pop_pending

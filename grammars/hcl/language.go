@@ -38,8 +38,7 @@ var language = gositter.Language{
 	ExternalScanner: gositter.ExternalScannerInfo{
 		States:    ts_external_scanner_states,
 		SymbolMap: ts_external_scanner_symbol_map,
-		// New stays nil: there was no scanner.go when this file was
-		// generated. Add scanner.go (func newScanner), then rerun gen.sh.
+		New:       newScanner,
 	},
 }
 
