@@ -1682,6 +1682,7 @@ func (p *Parser) Parse(src []byte) *Tree {
 
 	var position, lastPosition, versionCount uint32
 	for {
+		p.pool.reserveHeap()
 		for version := uint32(0); ; version++ {
 			versionCount = p.stack.versionCount()
 			if version >= versionCount {

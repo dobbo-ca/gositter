@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/bits"
 	"strconv"
+	"sync"
 )
 
 // subtree.c and subtree.h.
@@ -119,6 +120,23 @@ const (
 
 type heapChunk [1 << heapChunkBits]subtreeHeap
 
+// A reset keeps keptHeapChunks chunks and hands the rest to heapChunks, which
+// all parsers share: pooled parsers then hold what the inputs being parsed
+// need, not one high-water mark each.
+const keptHeapChunks = 8
+
+var heapChunks = sync.Pool{New: func() any { return new(heapChunk) }}
+
+// reserveHeap takes the next chunk from heapChunks, one chunk ahead of need.
+// allocate is inlined into the reduce path and a call there would end that,
+// so it only makes new chunks, when a round of advances outruns this.
+func (sp *subtreePool) reserveHeap() {
+	// The last possible chunk is left to allocate, which reports a full slab.
+	if sp.heapLen>>heapChunkBits+1 >= uint32(len(sp.heap)) && len(sp.heap) < math.MaxUint32>>heapChunkBits {
+		sp.heap = append(sp.heap, heapChunks.Get().(*heapChunk))
+	}
+}
+
 // SubtreePool, and the arenas behind every subtree of one parser. Slabs are
 // reset, not freed, between parses.
 type subtreePool struct {
@@ -186,6 +204,13 @@ func (sp *subtreePool) reset() {
 		sp.children = make([]subtree, 1, 4096)
 	}
 	sp.heapLen = 1
+	if len(sp.heap) > keptHeapChunks {
+		for i, c := range sp.heap[keptHeapChunks:] {
+			heapChunks.Put(c)
+			sp.heap[keptHeapChunks+i] = nil
+		}
+		sp.heap = sp.heap[:keptHeapChunks]
+	}
 	clear(sp.freeBits[:min(len(sp.freeBits), (len(sp.children)+31)/32)])
 	sp.children = sp.children[:1]
 	sp.freeBlocks = [childClassCount]uint32{}

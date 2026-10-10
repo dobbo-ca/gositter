@@ -31,6 +31,11 @@ func (l *Language) SmallTableBytes() int {
 // ChildrenSlabCap is the capacity of the children slab, in entries.
 func (p *Parser) ChildrenSlabCap() int { return cap(p.pool.children) }
 
+// HeapChunks is the number of heap chunks the parser holds.
+func (p *Parser) HeapChunks() int { return len(p.pool.heap) }
+
+const KeptHeapChunks = keptHeapChunks
+
 // RepeatFlagsOK reports whether fHasRepeat covers every node with a repeat
 // depth in the last tree, and each of its ancestors. balanceSubtree skips
 // what the flag leaves out.

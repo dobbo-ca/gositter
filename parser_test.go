@@ -259,3 +259,29 @@ func TestErrorRecoveryMemory(t *testing.T) {
 		})
 	}
 }
+
+// A reset hands the heap chunks of a large parse to the pool all parsers
+// share. A parser that takes them over as they are must build the same tree.
+func TestHeapChunksShared(t *testing.T) {
+	src := []byte(strings.Repeat("func f() { g(1, 2, 3) }\n", 5000))
+	other := []byte(strings.Repeat("var x = []int{1, 2, 3}\n", 5000))
+	a, b := gositter.NewParser(), gositter.NewParser()
+	a.SetLanguage(golang.Language())
+	b.SetLanguage(golang.Language())
+	want := a.Parse(src).RootNode().String()
+	if n := a.HeapChunks(); n <= 2*gositter.KeptHeapChunks {
+		t.Fatalf("input too small: %d chunks", n)
+	}
+	a.Reset()
+	if n := a.HeapChunks(); n != gositter.KeptHeapChunks {
+		t.Errorf("after reset: %d chunks, want %d", n, gositter.KeptHeapChunks)
+	}
+	b.Parse(other)
+	b.Reset()
+	if got := b.Parse(src).RootNode().String(); got != want {
+		t.Error("tree differs on chunks another parse has used")
+	}
+	if got := a.Parse(src).RootNode().String(); got != want {
+		t.Error("tree differs after the chunks went through the pool")
+	}
+}

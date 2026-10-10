@@ -501,7 +501,10 @@ The runtime agent owns the details. These are the constraints.
 - Stack nodes, links, heads, the reduce-action and tree-pool arrays are slabs
   or reused slices owned by the parser.
 - Slabs are reset, not freed, between parses. A warm parser allocates nothing
-  per file in the steady state, apart from growth.
+  per file in the steady state, apart from growth. One exception: a reset
+  hands the subtree heap chunks beyond the first 8 to a `sync.Pool` that all
+  parsers share, so a pool of parsers holds what the inputs in flight need
+  and the GC frees the rest.
 - No maps, no `fmt`, no interface or closure call per character or per parse
   action. The only indirect calls are `LexFn`/`KeywordLexFn` (per token) and
   `ExternalScanner` methods (per external scan, per serialize).
