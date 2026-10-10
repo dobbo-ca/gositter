@@ -19,8 +19,9 @@ type stackLink struct {
 	isPending bool
 }
 
-// StackNode. Field order differs from C: everything but links[1:] sits in
-// the first 48 bytes, and most nodes have one link.
+// StackNode. 48 bytes: most nodes have one link, so links 1 to 7 are kept
+// in stack.moreLinks. Use stack.link for any link but links[0]. A walk down a
+// long stack is bound by memory, and this is a third of the C node.
 type stackNode struct {
 	state             StateID
 	linkCount         uint16
@@ -29,7 +30,7 @@ type stackNode struct {
 	nodeCount         uint32
 	dynamicPrecedence int32
 	position          length
-	links             [maxLinkCount]stackLink
+	links             [1]stackLink
 }
 
 // StackIterator
@@ -94,7 +95,11 @@ type stack struct {
 	slices    []stackSlice
 	iterators []stackIterator
 	nodes     []stackNode // [0] unused
-	nodePool  []uint32    // node_pool
+	// Links 1 to 7 of the nodes that have them: moreLinks[more[node]], where
+	// 0 means none yet. A node index keeps its entry until reset.
+	more      []uint32
+	moreLinks [][maxLinkCount - 1]stackLink // [0] unused
+	nodePool  []uint32                      // node_pool
 	baseNode  uint32
 	sp        *subtreePool
 
@@ -104,6 +109,26 @@ type stack struct {
 	summary          []stackSummaryEntry   // SummarizeStackSession
 	maxDepth         uint32                // SummarizeStackSession
 	summaryPool      [][]stackSummaryEntry // freed summaries, for reuse
+}
+
+// links[i] of node self, for i < linkCount.
+func (s *stack) link(self uint32, i int) *stackLink {
+	if i == 0 {
+		return &s.nodes[self].links[0]
+	}
+	return &s.moreLinks[s.more[self]][i-1]
+}
+
+// The slot of links[i], i > 0, for writing link i.
+func (s *stack) moreLink(self uint32, i int) *stackLink {
+	if uint32(len(s.more)) <= self {
+		s.more = append(s.more, make([]uint32, int(self)+1-len(s.more))...)
+	}
+	if s.more[self] == 0 {
+		s.more[self] = uint32(len(s.moreLinks))
+		s.moreLinks = append(s.moreLinks, [maxLinkCount - 1]stackLink{})
+	}
+	return &s.moreLinks[s.more[self]][i-1]
 }
 
 // stack_node_retain
@@ -125,8 +150,8 @@ func (s *stack) nodeRelease(self uint32) {
 
 		firstPredecessor := uint32(0)
 		if n.linkCount > 0 {
-			for i := uint32(n.linkCount) - 1; i > 0; i-- {
-				link := n.links[i]
+			for i := int(n.linkCount) - 1; i > 0; i-- {
+				link := *s.link(self, i)
 				if link.subtree != nullSubtree {
 					s.sp.release(link.subtree)
 				}
@@ -274,6 +299,8 @@ func (s *stack) subtreeIsEquivalent(left, right subtree) bool {
 }
 
 // stack_node_add_link. Allocates no node, so pointers into s.nodes hold.
+// moreLinks can move, but only when a link is added, and no link pointer is
+// used after that.
 func (s *stack) nodeAddLink(self uint32, link stackLink) {
 	if link.node == self {
 		return
@@ -283,7 +310,7 @@ func (s *stack) nodeAddLink(self uint32, link stackLink) {
 	linkNode := &s.nodes[link.node]
 
 	for i := 0; i < int(n.linkCount); i++ {
-		existingLink := &n.links[i]
+		existingLink := s.link(self, i)
 		if s.subtreeIsEquivalent(existingLink.subtree, link.subtree) {
 			// Two links between the same pair of nodes: the ambiguity can be
 			// removed ahead of time.
@@ -298,12 +325,13 @@ func (s *stack) nodeAddLink(self uint32, link stackLink) {
 			}
 
 			// If the previous nodes are mergeable, merge them recursively.
-			existingNode := &s.nodes[existingLink.node]
+			existing := existingLink.node
+			existingNode := &s.nodes[existing]
 			if existingNode.state == linkNode.state &&
 				existingNode.position.bytes == linkNode.position.bytes &&
 				existingNode.errorCost == linkNode.errorCost {
 				for j := 0; j < int(linkNode.linkCount); j++ {
-					s.nodeAddLink(existingLink.node, linkNode.links[j])
+					s.nodeAddLink(existing, *s.link(link.node, j))
 				}
 				dynamicPrecedence := linkNode.dynamicPrecedence
 				if link.subtree != nullSubtree {
@@ -324,7 +352,11 @@ func (s *stack) nodeAddLink(self uint32, link stackLink) {
 	s.nodeRetain(link.node)
 	nodeCount := linkNode.nodeCount
 	dynamicPrecedence := linkNode.dynamicPrecedence
-	n.links[n.linkCount] = link
+	if n.linkCount == 0 {
+		n.links[0] = link
+	} else {
+		*s.moreLink(self, int(n.linkCount)) = link
+	}
 	n.linkCount++
 
 	if link.subtree != nullSubtree {
@@ -430,28 +462,31 @@ func (s *stack) callback(cb uint8, iterator *stackIterator) uint32 {
 		return stackActionNone
 
 	default: // summarize_stack_callback
-		node := &s.nodes[iterator.node]
-		state := node.state
-		depth := iterator.subtreeCount
-		if depth > s.maxDepth {
+		if iterator.subtreeCount > s.maxDepth {
 			return stackActionStop
 		}
-		for i := len(s.summary) - 1; i >= 0; i-- {
-			entry := s.summary[i]
-			if entry.depth < depth {
-				break
-			}
-			if entry.depth == depth && entry.state == state {
-				return stackActionNone
-			}
-		}
-		s.summary = append(s.summary, stackSummaryEntry{
-			position: node.position,
-			depth:    depth,
-			state:    state,
-		})
+		s.summarize(&s.nodes[iterator.node], iterator.subtreeCount)
 		return stackActionNone
 	}
+}
+
+// The part of summarize_stack_callback below its depth test.
+func (s *stack) summarize(node *stackNode, depth uint32) {
+	state := node.state
+	for i := len(s.summary) - 1; i >= 0; i-- {
+		entry := &s.summary[i]
+		if entry.depth < depth {
+			break
+		}
+		if entry.depth == depth && entry.state == state {
+			return
+		}
+	}
+	s.summary = append(s.summary, stackSummaryEntry{
+		position: node.position,
+		depth:    depth,
+		state:    state,
+	})
 }
 
 // stack__iter. The returned slice is s.slices and is overwritten by the next
@@ -502,6 +537,28 @@ func (s *stack) iter(version uint32, cb uint8, goalSubtreeCount int) []stackSlic
 				it.isPending = false
 			}
 		}
+	} else if cb == cbSummarize {
+		// The same for the summary walk, which passes every extra on the
+		// chain: after many errors in a row that is most of the stack.
+		it := &s.iterators[0]
+		for it.subtreeCount <= s.maxDepth {
+			node := &s.nodes[it.node]
+			if node.linkCount != 1 {
+				break
+			}
+			s.summarize(node, it.subtreeCount)
+			link := &node.links[0]
+			it.node = link.node
+			if link.subtree == nullSubtree {
+				it.subtreeCount++
+				it.isPending = false
+			} else if !sp.extra(link.subtree) {
+				it.subtreeCount++
+				if !link.isPending {
+					it.isPending = false
+				}
+			}
+		}
 	}
 
 	for len(s.iterators) > 0 {
@@ -543,7 +600,7 @@ func (s *stack) iter(version uint32, cb uint8, goalSubtreeCount int) []stackSlic
 					if len(s.iterators) >= maxIteratorCount {
 						continue
 					}
-					link = node.links[j]
+					link = *s.link(nodeIndex, int(j))
 					s.iterators = append(s.iterators, s.iterators[i])
 					nextIterator = &s.iterators[len(s.iterators)-1]
 					nextIterator.subtrees = sp.arrayCopy(nextIterator.subtrees)
@@ -593,6 +650,8 @@ func (s *stack) reset() {
 		s.nodes = make([]stackNode, 1, 64)
 	}
 	s.nodes = s.nodes[:1]
+	s.more = s.more[:0]
+	s.moreLinks = append(s.moreLinks[:0], [maxLinkCount - 1]stackLink{})
 	s.nodePool = s.nodePool[:0]
 	s.baseNode = s.nodeNew(0, nullSubtree, false, 1)
 	s.clear()
@@ -730,7 +789,7 @@ func (s *stack) popPending(version uint32) []stackSlice {
 func (s *stack) popError(version uint32) subtreeArray {
 	node := &s.nodes[s.heads[version].node]
 	for i := 0; i < int(node.linkCount); i++ {
-		if node.links[i].subtree != nullSubtree && s.sp.isError(node.links[i].subtree) {
+		if t := s.link(s.heads[version].node, i).subtree; t != nullSubtree && s.sp.isError(t) {
 			s.foundError = false
 			pop := s.iter(version, cbPopError, 1)
 			if len(pop) > 0 {
@@ -849,7 +908,7 @@ func (s *stack) merge(version1, version2 uint32) bool {
 	head2 := &s.heads[version2]
 	node2 := &s.nodes[head2.node]
 	for i := 0; i < int(node2.linkCount); i++ {
-		s.nodeAddLink(head1.node, node2.links[i])
+		s.nodeAddLink(head1.node, *s.link(head2.node, i))
 	}
 	if node1 := &s.nodes[head1.node]; node1.state == errorState {
 		head1.nodeCountAtLastError = node1.nodeCount
