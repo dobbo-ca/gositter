@@ -823,6 +823,9 @@ func (p *Parser) reduceInPlace(
 	p.trailingExtras = append(p.trailingExtras[:0],
 		sp.children[children.off+children.size:children.off+children.size+trailing]...)
 
+	if sp.quickFree+sp.mergedFree > uint32(len(sp.children))/4 && children.size > 0 {
+		sp.settleChildren(&children)
+	}
 	parent := sp.newNode(symbol, &children, uint32(productionID), p.language)
 
 	h := sp.ptr(parent)

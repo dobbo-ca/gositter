@@ -366,9 +366,16 @@ func TestChildrenAllocator(t *testing.T) {
 				n = uint32(1 + r.Intn(3000))
 			}
 			b := block{tag: subtree(step) << 32}
-			b.a.off, b.a.cap = sp.allocChildren(n)
-			b.a.size = n
-			fill(b, 0)
+			if r.Intn(3) == 0 {
+				// As reduceInPlace does.
+				b.a = subtreeArray{off: sp.bumpChildren(n), size: n, cap: n}
+				fill(b, 0)
+				sp.settleChildren(&b.a)
+			} else {
+				b.a.off, b.a.cap = sp.allocChildren(n)
+				b.a.size = n
+				fill(b, 0)
+			}
 			live = append(live, b)
 			liveCap += int(b.a.cap)
 		case k < 7:
@@ -390,6 +397,9 @@ func TestChildrenAllocator(t *testing.T) {
 			live = live[:len(live)-1]
 		}
 		peak = max(peak, liveCap)
+		if free := int(sp.quickFree + sp.mergedFree); 1+liveCap+free != len(sp.children) {
+			t.Fatalf("step %d: slab %d entries, live %d, counted free %d", step, len(sp.children), liveCap, free)
+		}
 		if len(sp.children) > 4*peak+4096 {
 			t.Fatalf("step %d: slab %d entries, live peak %d", step, len(sp.children), peak)
 		}
