@@ -4,7 +4,10 @@
 // Changes go through scratch/CONTRACT_CHANGES.md.
 package gositter
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 // TSSymbol, TSStateId, TSFieldId.
 type (
@@ -197,8 +200,13 @@ type Language struct {
 
 	// Derived by prepare, see language.go.
 	prepareOnce sync.Once
-	smallBase   []uint32 // per small state: its offset in smallComb
-	smallComb   []uint32 // (state+1)<<16 | value, 0 if free
+	parsed      atomic.Int64 // source bytes seen while small is nil
+	small       atomic.Pointer[smallTable]
+}
+
+type smallTable struct {
+	base []uint32 // per small state: its offset in comb
+	comb []uint32 // (state+1)<<16 | value, 0 if free
 }
 
 // set_contains

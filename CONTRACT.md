@@ -101,8 +101,9 @@ Rules for the generator:
   `ts_language_lex_mode_for_state`, supertypes, name, metadata).
 - A `Language` is immutable and shared by all parsers and goroutines.
   `Language()` returns the same pointer on every call. The one exception is
-  internal: the first `SetLanguage` builds derived lookup tables under a
-  `sync.Once`. Do not copy a `Language` value.
+  internal: once a language has parsed enough source, `Parse` builds a
+  derived lookup table under a `sync.Once` and publishes it through an atomic
+  pointer. Do not copy a `Language` value.
 
 ## 4. ParseAction encoding
 

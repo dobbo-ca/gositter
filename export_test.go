@@ -5,7 +5,7 @@ package gositter
 // the first difference, or ok.
 func (l *Language) DenseMismatch() (state, symbol uint32, built, ok bool) {
 	l.prepare()
-	built = l.smallBase != nil
+	built = l.small.Load() != nil
 	if !built {
 		return 0, 0, false, true // lookup is the scan itself
 	}
@@ -25,7 +25,11 @@ func (l *Language) DenseMismatch() (state, symbol uint32, built, ok bool) {
 // SmallTableBytes is the size of the derived small parse table.
 func (l *Language) SmallTableBytes() int {
 	l.prepare()
-	return 4 * (len(l.smallBase) + len(l.smallComb))
+	t := l.small.Load()
+	if t == nil {
+		return 0
+	}
+	return 4 * (len(t.base) + len(t.comb))
 }
 
 // ChildrenSlabCap is the capacity of the children slab, in entries.

@@ -164,10 +164,10 @@ func (l *Language) lookup(state StateID, symbol Symbol) uint16 {
 // returns: two loads instead of a search.
 func (l *Language) lookupSmall(state StateID, symbol Symbol) uint16 {
 	st := uint32(state) - l.LargeStateCount
-	if st < uint32(len(l.smallBase)) && uint32(symbol) < l.SymbolCount {
+	if t := l.small.Load(); t != nil && st < uint32(len(t.base)) && uint32(symbol) < l.SymbolCount {
 		// A slot belongs to the state whose number it carries; any other
 		// slot means the scan would find nothing.
-		if e := l.smallComb[l.smallBase[st]+uint32(symbol)]; e>>16 == st+1 {
+		if e := t.comb[t.base[st]+uint32(symbol)]; e>>16 == st+1 {
 			return uint16(e)
 		}
 		return 0
@@ -197,8 +197,20 @@ func (l *Language) scanSmall(state StateID, symbol Symbol) uint16 {
 
 const combLongRow = 4 // entries; see prepare
 
-// prepare builds the derived lookup table once per Language. Parsers call it
-// from SetLanguage, so the table is published before any parser reads it.
+// noteParse counts the bytes of one parse. The table takes up to 6 MB and 3
+// ms to build (scala), so a language gets it only once it has parsed a
+// source byte per four entries of its small parse table: about where the
+// slower scan (35% of a go parse, 57% of cpp) has cost as much as the build.
+// Until then lookups scan.
+func (l *Language) noteParse(n int) {
+	if l.small.Load() == nil && l.parsed.Add(int64(n)) >= int64(len(l.SmallParseTable)/4) {
+		l.prepare()
+	}
+}
+
+// prepare builds the derived lookup table once per Language. Parsers that
+// are mid-parse pick it up at their next lookup: both paths give the same
+// answer.
 //
 // The table is the small parse table as a row-displacement ("comb") table:
 // the row of small state st is laid over one shared array at offset
@@ -324,8 +336,7 @@ func (l *Language) prepare() {
 			}
 			base[st] = b
 		}
-		l.smallComb = comb
-		l.smallBase = base
+		l.small.Store(&smallTable{base: base, comb: comb})
 	})
 }
 

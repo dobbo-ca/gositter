@@ -1630,9 +1630,6 @@ func (p *Parser) SetLanguage(l *Language) error {
 		}
 	}
 
-	if l != nil {
-		l.prepare()
-	}
 	p.language = l
 	return nil
 }
@@ -1672,6 +1669,7 @@ func (p *Parser) Parse(src []byte) *Tree {
 	// reset happens here, before the next one.
 	p.Reset()
 
+	p.language.noteParse(len(src))
 	p.lexer.setInput(src)
 
 	p.externalScannerCreate()
