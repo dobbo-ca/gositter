@@ -292,8 +292,8 @@ func (p *Parser) externalScannerSerialize() uint32 {
 func (p *Parser) externalScannerDeserialize(externalToken subtree) {
 	var data []byte
 	if externalToken != nullSubtree {
-		h := p.pool.ptr(externalToken)
-		data = p.pool.ext[h.extOff : h.extOff+h.extLen]
+		off, n := p.pool.ptr(externalToken).ext()
+		data = p.pool.ext[off : off+n]
 	}
 	p.externalScanner.Deserialize(data)
 }
@@ -496,13 +496,12 @@ func (p *Parser) lex(version uint32, parseState StateID) subtree {
 			if prev := sp.externalScannerState(externalToken); !externalScannerStateChanged && len(prev) > 0 {
 				// Same bytes as the previous token's state: share them.
 				ph := sp.ptr(externalToken)
-				h.extOff, h.extLen = ph.extOff, ph.extLen
+				h.setExt(ph.ext())
 			} else {
 				if len(sp.ext)+len(state) > math.MaxUint32 {
 					panic(errSlabFull)
 				}
-				h.extOff = uint32(len(sp.ext))
-				h.extLen = externalScannerStateLen
+				h.setExt(uint32(len(sp.ext)), externalScannerStateLen)
 				sp.ext = append(sp.ext, state...)
 			}
 			// In C the state shares a union with the node fields, and

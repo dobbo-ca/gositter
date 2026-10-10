@@ -68,8 +68,11 @@ const (
 	fHasRepeat
 )
 
-// SubtreeHeapData. The C union is spread out: node fields, then the external
-// scanner state (a range of subtreePool.ext) and lookahead_char.
+// SubtreeHeapData. Part of the C union is kept: a leaf has no child counts,
+// so an external token leaf holds its scanner state (a range of
+// subtreePool.ext) in visibleChildCount and namedChildCount. Readers of
+// those check childCount first, as C does. 80 bytes: at 76 the entries are
+// no longer 8-byte aligned and a parse costs 1 to 1.6% more cycles.
 type subtreeHeap struct {
 	refCount       uint32
 	padding        length
@@ -98,13 +101,15 @@ type subtreeHeap struct {
 	dynamicPrecedence      int32
 	children               uint32 // offset into subtreePool.children
 
-	// External terminal subtrees (childCount == 0 && fHasExternalTokens).
-	extOff uint32
-	extLen uint32
-
 	// Error terminal subtrees (childCount == 0 && symbol == SymbolError).
 	lookaheadChar int32
 }
+
+// The external scanner state range of an external terminal subtree
+// (childCount == 0 && fHasExternalTokens).
+func (h *subtreeHeap) ext() (off, n uint32) { return h.visibleChildCount, h.namedChildCount }
+
+func (h *subtreeHeap) setExt(off, n uint32) { h.visibleChildCount, h.namedChildCount = off, n }
 
 // SubtreeArray: a region of subtreePool.children.
 type subtreeArray struct {
@@ -262,7 +267,8 @@ func (sp *subtreePool) externalScannerState(s subtree) []byte {
 	if s != nullSubtree && !s.isInline() {
 		h := sp.ptr(s)
 		if h.flags&fHasExternalTokens != 0 && h.childCount == 0 {
-			return sp.ext[h.extOff : h.extOff+h.extLen]
+			off, n := h.ext()
+			return sp.ext[off : off+n]
 		}
 	}
 	return nil

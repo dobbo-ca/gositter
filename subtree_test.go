@@ -269,11 +269,17 @@ func TestSubtreeRepeatDepthOfLeaves(t *testing.T) {
 	if sp.externalScannerState(ext) != nil || !sp.externalScannerStateEq(ext, nullSubtree) {
 		t.Fatal("empty scanner state must equal the state of NULL")
 	}
+	// The state range shares the child count fields of the union.
+	sp.ext = append(sp.ext, 1, 2, 3)
+	sp.ptr(ext).setExt(1, 2)
+	if string(sp.externalScannerState(ext)) != "\x02\x03" || sp.visibleChildCount(ext) != 0 {
+		t.Fatal("scanner state range of a leaf")
+	}
 }
 
 func TestChildClass(t *testing.T) {
-	if s := unsafe.Sizeof(subtreeHeap{}); s != 88 {
-		t.Errorf("subtreeHeap is %d bytes, want 88", s)
+	if s := unsafe.Sizeof(subtreeHeap{}); s != 80 {
+		t.Errorf("subtreeHeap is %d bytes, want 80", s)
 	}
 	prevClass, prevSize := uint32(0), uint32(0)
 	for _, n := range []uint32{1, 2, 63, 64, 65, 80, 81, 96, 97, 128, 129, 1000, 1 << 20, 1<<20 + 1, 1<<31 - 1, 1 << 31} {
