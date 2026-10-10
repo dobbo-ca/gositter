@@ -2,6 +2,7 @@ package gositter
 
 import (
 	"cmp"
+	"math/bits"
 	"slices"
 )
 
@@ -257,7 +258,8 @@ func (l *Language) prepare() {
 		// The packed table comes to at most 1.61 slots per small parse table
 		// entry in the 21 grammars; this capacity spares them the regrowth.
 		comb := make([]uint32, l.SymbolCount, uint32(len(l.SmallParseTable))*7/4+l.SymbolCount)
-		lowest := uint32(0) // no free slot below this index
+		used := make([]uint64, cap(comb)>>6+2) // one bit per slot of comb
+		lowest := uint32(0)                    // no free slot below this index
 		longBase := uint32(0)
 		for _, st := range order {
 			row := entries[rowStart[st]:rowStart[st+1]]
@@ -284,14 +286,25 @@ func (l *Language) prepare() {
 			if long && longBase > b {
 				b = longBase
 			}
-		fit:
-			for ; ; b++ {
+			// 64 bases at a time: bit j of taken is set when base b+j puts
+			// an entry on a used slot. Testing the slots one by one cost 20
+			// ms for verilog, most of it in mispredicted branches.
+			for ; ; b += 64 {
+				if need := int(b+l.SymbolCount)>>6 + 2; need > len(used) {
+					used = append(used, make([]uint64, need-len(used))...)
+				}
+				taken := uint64(0)
 				for _, e := range row {
-					if i := b + uint32(e.symbol); i < uint32(len(comb)) && comb[i] != 0 {
-						continue fit
+					i := b + uint32(e.symbol)
+					taken |= used[i>>6]>>(i&63) | used[i>>6+1]<<(64-i&63)
+					if taken == ^uint64(0) {
+						break
 					}
 				}
-				break
+				if taken != ^uint64(0) {
+					b += uint32(bits.TrailingZeros64(^taken))
+					break
+				}
 			}
 			if long {
 				longBase = b
@@ -305,7 +318,9 @@ func (l *Language) prepare() {
 				comb = comb[:need]
 			}
 			for _, e := range row {
-				comb[b+uint32(e.symbol)] = (st+1)<<16 | uint32(e.value)
+				i := b + uint32(e.symbol)
+				comb[i] = (st+1)<<16 | uint32(e.value)
+				used[i>>6] |= 1 << (i & 63)
 			}
 			base[st] = b
 		}
