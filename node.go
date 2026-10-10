@@ -258,6 +258,27 @@ func (n Node) appendChildren(buf []Node, includeAnonymous bool) []Node {
 	return buf
 }
 
+// Preorder calls fn for n and, where fn returns true, for the nodes below
+// it in document order: the walk a recursive Children loop makes, with no
+// slice per node. No C counterpart.
+func (n Node) Preorder(fn func(Node) bool) {
+	if fn(n) {
+		n.preorderChildren(fn)
+	}
+}
+
+func (n Node) preorderChildren(fn func(Node) bool) {
+	var child Node
+	iterator := n.iterateChildren()
+	for iterator.next(&child) {
+		if child.isRelevant(true) {
+			child.Preorder(fn)
+		} else if child.relevantChildCount(true) > 0 {
+			child.preorderChildren(fn)
+		}
+	}
+}
+
 // ts_node_named_child_count
 func (n Node) NamedChildCount() uint32 {
 	return n.relevantChildCount(false)

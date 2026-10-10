@@ -98,6 +98,7 @@ func TestRegress(t *testing.T) {
 					}
 					if pass == 0 {
 						checkChildren(t, dumps[i], root)
+						checkPreorder(t, dumps[i], root)
 						if !p.RepeatFlagsOK() {
 							t.Errorf("%s: fHasRepeat misses a repeat node", dumps[i])
 						}
@@ -176,5 +177,50 @@ func checkChildren(t *testing.T, name string, root gositter.Node) {
 			}
 		}
 		stack = append(stack, all...)
+	}
+}
+
+// Preorder must visit what a recursive Children loop visits, in that order,
+// and skip the nodes below one fn refuses (here: every third named node).
+func checkPreorder(t *testing.T, name string, root gositter.Node) {
+	skip := func(n gositter.Node) bool { return n.IsNamed() && n.StartByte()%3 == 0 }
+	var want []gositter.Node
+	var rec func(gositter.Node)
+	rec = func(n gositter.Node) {
+		want = append(want, n)
+		if skip(n) {
+			return
+		}
+		for _, c := range n.Children(nil) {
+			rec(c)
+		}
+	}
+	for _, c := range root.Children(nil) {
+		rec(c)
+	}
+	i, bad := 0, false
+	visit := func(n gositter.Node) bool {
+		bad = bad || i >= len(want) || want[i] != n
+		i++
+		return !skip(n)
+	}
+	for _, c := range root.Children(nil) {
+		c.Preorder(visit)
+	}
+	if bad || i != len(want) {
+		t.Errorf("%s: Preorder visits %d nodes, the Children walk %d, or the order differs", name, i, len(want))
+	}
+	i, want = 0, want[:0]
+	rec = func(n gositter.Node) {
+		want = append(want, n)
+		for _, c := range n.Children(nil) {
+			rec(c)
+		}
+	}
+	rec(root)
+	skip = func(gositter.Node) bool { return false }
+	root.Preorder(visit)
+	if bad || i != len(want) {
+		t.Errorf("%s: full Preorder visits %d nodes, the Children walk %d, or the order differs", name, i, len(want))
 	}
 }
