@@ -1,6 +1,7 @@
 package gositter
 
 import (
+	"math/rand"
 	"testing"
 	"unsafe"
 )
@@ -330,5 +331,75 @@ func TestChildrenBlockReuse(t *testing.T) {
 	}
 	if len(sp.children) > 40*rounds {
 		t.Errorf("children slab has %d entries for a node of %d children", len(sp.children), rounds)
+	}
+}
+
+// Random allocs, frees and array growth on the children slab. Every live
+// block keeps its contents, free blocks merge back (the slab stays within a
+// constant of the live peak) and freeing everything empties the slab.
+func TestChildrenAllocator(t *testing.T) {
+	sp := newTestPool()
+	r := rand.New(rand.NewSource(1))
+	type block struct {
+		a   subtreeArray
+		tag subtree
+	}
+	var live []block
+	fill := func(b block, from uint32) {
+		for i := from; i < b.a.size; i++ {
+			sp.children[b.a.off+i] = b.tag + subtree(i)
+		}
+	}
+	check := func(b block) {
+		for i := uint32(0); i < b.a.size; i++ {
+			if sp.children[b.a.off+i] != b.tag+subtree(i) {
+				t.Fatalf("block at %d size %d: entry %d overwritten", b.a.off, b.a.size, i)
+			}
+		}
+	}
+	liveCap, peak := 0, 0
+	for step := 0; step < 200000; step++ {
+		switch k := r.Intn(10); {
+		case k < 4 || len(live) == 0:
+			n := uint32(1 + r.Intn(40))
+			if r.Intn(4) == 0 {
+				n = uint32(1 + r.Intn(3000))
+			}
+			b := block{tag: subtree(step) << 32}
+			b.a.off, b.a.cap = sp.allocChildren(n)
+			b.a.size = n
+			fill(b, 0)
+			live = append(live, b)
+			liveCap += int(b.a.cap)
+		case k < 7:
+			i := r.Intn(len(live))
+			b := &live[i]
+			check(*b)
+			liveCap -= int(b.a.cap)
+			old := b.a.size
+			sp.arrayReserve(&b.a, old+uint32(1+r.Intn(int(old)+8)))
+			b.a.size = b.a.cap
+			fill(*b, old)
+			liveCap += int(b.a.cap)
+		default:
+			i := r.Intn(len(live))
+			check(live[i])
+			liveCap -= int(live[i].a.cap)
+			sp.arrayFree(&live[i].a)
+			live[i] = live[len(live)-1]
+			live = live[:len(live)-1]
+		}
+		peak = max(peak, liveCap)
+		if len(sp.children) > 4*peak+4096 {
+			t.Fatalf("step %d: slab %d entries, live peak %d", step, len(sp.children), peak)
+		}
+	}
+	for _, b := range live {
+		check(b)
+		sp.arrayFree(&b.a)
+	}
+	sp.flushQuick()
+	if len(sp.children) != 1 || sp.freeLists != [3]uint64{} {
+		t.Errorf("slab has %d entries and lists %x after freeing everything", len(sp.children), sp.freeLists)
 	}
 }

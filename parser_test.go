@@ -5,8 +5,15 @@ import (
 	"testing"
 
 	"github.com/dobbo-ca/gositter"
+	"github.com/dobbo-ca/gositter/grammars/c"
+	"github.com/dobbo-ca/gositter/grammars/cpp"
+	"github.com/dobbo-ca/gositter/grammars/csharp"
+	"github.com/dobbo-ca/gositter/grammars/golang"
 	"github.com/dobbo-ca/gositter/grammars/json"
 	"github.com/dobbo-ca/gositter/grammars/kotlin"
+	"github.com/dobbo-ca/gositter/grammars/ruby"
+	"github.com/dobbo-ca/gositter/grammars/rust"
+	"github.com/dobbo-ca/gositter/grammars/verilog"
 )
 
 func parseJSON(t testing.TB, src string) (*gositter.Parser, gositter.Node) {
@@ -195,17 +202,39 @@ func BenchmarkParseJSON(b *testing.B) {
 }
 
 // Inputs that never leave error recovery. Every array the recovery drops has
-// to be reusable: these took 300 to 3000 children slab entries per input byte
-// when it was not, and at 100,000 bytes the 32-bit slab offset wrapped.
+// to be reusable, also by an array of another size: these took 100 to 3000
+// children slab entries per input byte when it was not, and at 100,000 bytes
+// the 32-bit slab offset wrapped. limit is in slab entries per input byte.
 func TestErrorRecoveryMemory(t *testing.T) {
 	cases := []struct {
-		name string
-		lang *gositter.Language
-		src  string
+		name  string
+		lang  *gositter.Language
+		src   string
+		limit int
 	}{
-		{"kotlin_lt", kotlin.Language(), strings.Repeat("<", 5000)},
-		{"kotlin_rbracket", kotlin.Language(), strings.Repeat("]", 5000)},
-		{"json_open", json.Language(), strings.Repeat(`{"a": "b`, 2500)},
+		{"kotlin_lt", kotlin.Language(), strings.Repeat("<", 5000), 128},
+		{"kotlin_rbracket", kotlin.Language(), strings.Repeat("]", 5000), 128},
+		{"json_open", json.Language(), strings.Repeat(`{"a": "b`, 2500), 128},
+		// An ERROR node that grows by a few children per token.
+		{"c_define", c.Language(), strings.Repeat("#define A( ", 1000), 16},
+		{"cpp_define", cpp.Language(), strings.Repeat("#define A( ", 1000), 16},
+		{"c_comment_end", c.Language(), strings.Repeat("*/\n", 1000), 64},
+		{"cpp_comment_end", cpp.Language(), strings.Repeat("*/\n", 1000), 64},
+		{"csharp_comment_end", csharp.Language(), strings.Repeat("*/\n", 1000), 64},
+		{"go_comment_end", golang.Language(), strings.Repeat("*/\n", 1000), 64},
+		{"c_comment_start", c.Language(), strings.Repeat("/*\n", 1000), 64},
+		{"cpp_comment_start", cpp.Language(), strings.Repeat("/*\n", 1000), 64},
+		{"csharp_comment_start", csharp.Language(), strings.Repeat("/*\n", 1000), 64},
+		{"go_comment_start", golang.Language(), strings.Repeat("/*\n", 1000), 64},
+		{"csharp_string", csharp.Language(), strings.Repeat(`"a `, 3000), 16},
+		{"csharp_verbatim_string", csharp.Language(), strings.Repeat(`@"a `, 3000), 16},
+		{"csharp_raw_string", csharp.Language(), strings.Repeat("\"\"\"\n", 3000), 16},
+		{"ruby_symbol", ruby.Language(), strings.Repeat(`:"a `, 3000), 16},
+		{"verilog_module", verilog.Language(), strings.Repeat("module\n", 3000), 16},
+		{"rust_raw_string", rust.Language(), strings.Repeat(`r#"a `, 3000), 16},
+		// 64 pop-all arrays that double together.
+		{"cpp_template", cpp.Language(), strings.Repeat("std::vector<std::map<int, x = 1;\n", 1000), 96},
+		{"rust_match_arm", rust.Language(), strings.Repeat("x => {\n", 3000), 128},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -216,11 +245,14 @@ func TestErrorRecoveryMemory(t *testing.T) {
 			if !root.HasError() || root.EndByte() != uint32(len(src)) {
 				t.Fatalf("root: error=%v end=%d", root.HasError(), root.EndByte())
 			}
-			if got, limit := p.ChildrenSlabCap(), 128*len(src); got > limit {
+			if got, limit := p.ChildrenSlabCap(), c.limit*len(src); got > limit {
 				t.Errorf("children slab: %d entries, limit %d", got, limit)
 			}
-			if n := testing.AllocsPerRun(1, func() { p.Parse(src) }); n != 0 {
-				t.Errorf("second parse: %v allocs, want 0", n)
+			// Not checked where the external scanner allocates on every parse.
+			if testing.AllocsPerRun(1, func() { p.Parse(nil) }) == 0 {
+				if n := testing.AllocsPerRun(1, func() { p.Parse(src) }); n != 0 {
+					t.Errorf("second parse: %v allocs, want 0", n)
+				}
 			}
 		})
 	}

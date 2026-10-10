@@ -126,14 +126,25 @@ type subtreePool struct {
 	ext       []byte       // external scanner states
 	treeStack []subtree    // tree_stack
 
-	// Heads of the free children blocks, by size class. The first entry of a
-	// free block holds the offset of the next one.
+	// Free children blocks, as in a malloc with boundary tags. A block of
+	// any size sits in the list of the largest class that fits in it. Its
+	// first entry holds the next block and, in the high half, the previous
+	// one; its second and its last entry hold its size, unless that is 1.
+	// freeBits has two bits per slab entry: a free block starts here, a free
+	// block ends here. A block freed next to another one merges with it.
 	freeBlocks [childClassCount]uint32
+	freeLists  [3]uint64 // the non-empty lists
+	freeBits   []uint64
+
+	// Freed blocks of up to 64 entries wait here, by size, linked through
+	// their first entry, and serve the next request of their size as they
+	// are. flushQuick moves them to freeBlocks.
+	quickBlocks [exactChildClasses + 1]uint32
 }
 
-// Children blocks come in size classes, so a freed block serves the next
-// request of its class: one class per size up to 64, then four per doubling
-// (an error node that grows by one child keeps reusing two blocks).
+// Children blocks are handed out in size classes: one class per size up to
+// 64, then four per doubling. Free blocks merge and split, so what an array
+// leaves behind as it outgrows one class after another serves it again.
 const (
 	exactChildClasses = 64
 	childClassCount   = 165
@@ -156,14 +167,23 @@ func childClass(n uint32) (class, size uint32) {
 	return shift*4 + m + 44, m << shift
 }
 
+// childClassSize is the block size of a class above exactChildClasses.
+func childClassSize(class uint32) uint32 {
+	shift := (class - 49) / 4
+	return (class - 44 - shift*4) << shift
+}
+
 func (sp *subtreePool) reset() {
 	if cap(sp.children) == 0 {
 		sp.heap = []*heapChunk{new(heapChunk)}
 		sp.children = make([]subtree, 1, 4096)
 	}
 	sp.heapLen = 1
+	clear(sp.freeBits[:min(len(sp.freeBits), (len(sp.children)+31)/32)])
 	sp.children = sp.children[:1]
 	sp.freeBlocks = [childClassCount]uint32{}
+	sp.freeLists = [3]uint64{}
+	sp.quickBlocks = [exactChildClasses + 1]uint32{}
 	sp.freeTrees = sp.freeTrees[:0]
 	sp.ext = sp.ext[:0]
 	sp.treeStack = sp.treeStack[:0]
@@ -237,50 +257,192 @@ func (sp *subtreePool) bumpChildren(n uint32) uint32 {
 	return uint32(off)
 }
 
+// The capacity never passes 2^32-1 entries, so every offset and length of
+// the slab fits in 32 bits.
 func (sp *subtreePool) growChildren(need int) {
 	if need > math.MaxUint32 {
 		panic(errSlabFull)
 	}
-	grown := make([]subtree, len(sp.children), max(2*cap(sp.children), need))
+	grown := make([]subtree, len(sp.children), min(max(2*cap(sp.children), need), math.MaxUint32))
 	copy(grown, sp.children)
 	sp.children = grown
 }
 
-// A block for n > 0 entries: a free one of that class, else new at the end
-// of the slab. C calls malloc here.
+// A free block of at least size entries, cut to size, or 0. size is the
+// block size of class.
+func (sp *subtreePool) takeFree(class, size uint32) uint32 {
+	if class <= exactChildClasses {
+		if off := sp.quickBlocks[class]; off != 0 {
+			sp.quickBlocks[class] = uint32(sp.children[off])
+			return off
+		}
+	}
+	off := sp.takeMerged(class, size)
+	// Merge what waits in the quick lists before the slab gets a block that
+	// they could have made, or grows.
+	if off == 0 && (class > exactChildClasses || len(sp.children)+int(size) > cap(sp.children)) {
+		sp.flushQuick()
+		off = sp.takeMerged(class, size)
+	}
+	return off
+}
+
+func (sp *subtreePool) takeMerged(class, size uint32) uint32 {
+	list := class
+	if sp.freeBlocks[list] == 0 {
+		// The next non-empty list.
+		m := sp.freeLists[list>>6] >> (list & 63)
+		for m == 0 {
+			list = (list>>6 + 1) << 6
+			if list >= childClassCount {
+				return 0
+			}
+			m = sp.freeLists[list>>6]
+		}
+		list += uint32(bits.TrailingZeros64(m))
+	}
+	off := sp.freeBlocks[list]
+	if rest := sp.unlinkFree(off) - size; rest > 0 {
+		sp.linkFree(off+size, rest)
+	}
+	return off
+}
+
+func (sp *subtreePool) flushQuick() {
+	for size := uint32(1); size <= exactChildClasses; size++ {
+		off := sp.quickBlocks[size]
+		sp.quickBlocks[size] = 0
+		for off != 0 {
+			next := uint32(sp.children[off])
+			sp.mergeFree(off, size)
+			off = next
+		}
+	}
+}
+
+// The list of a free block.
+func freeList(size uint32) uint32 {
+	if size <= exactChildClasses {
+		return size
+	}
+	if size >= 1<<31 {
+		return childClassCount - 1
+	}
+	class, classSize := childClass(size)
+	if classSize != size {
+		class--
+	}
+	return class
+}
+
+func (sp *subtreePool) linkFree(off, size uint32) {
+	list := freeList(size)
+	head := sp.freeBlocks[list]
+	sp.children[off] = subtree(head)
+	if size > 1 {
+		sp.children[off+1] = subtree(size)
+		sp.children[off+size-1] = subtree(size)
+	}
+	if head != 0 {
+		sp.children[head] |= subtree(off) << 32
+	}
+	sp.freeBlocks[list] = off
+	sp.freeLists[list>>6] |= 1 << (list & 63)
+	last := off + size - 1
+	sp.freeBits[off>>5] |= 1 << (off & 31 * 2)
+	sp.freeBits[last>>5] |= 2 << (last & 31 * 2)
+}
+
+// Takes a free block out of its list and returns its size.
+func (sp *subtreePool) unlinkFree(off uint32) uint32 {
+	next, prev := uint32(sp.children[off]), uint32(sp.children[off]>>32)
+	size := uint32(1)
+	if sp.freeBits[off>>5]>>(off&31*2)&2 == 0 {
+		size = uint32(sp.children[off+1])
+	}
+	if prev != 0 {
+		sp.children[prev] = sp.children[prev]>>32<<32 | subtree(next)
+	} else {
+		list := freeList(size)
+		sp.freeBlocks[list] = next
+		if next == 0 {
+			sp.freeLists[list>>6] &^= 1 << (list & 63)
+		}
+	}
+	if next != 0 {
+		sp.children[next] = subtree(uint32(sp.children[next])) | subtree(prev)<<32
+	}
+	last := off + size - 1
+	sp.freeBits[off>>5] &^= 1 << (off & 31 * 2)
+	sp.freeBits[last>>5] &^= 2 << (last & 31 * 2)
+	return size
+}
+
+// A block for n > 0 entries: a free one, else new at the end of the slab. C
+// calls malloc here.
 func (sp *subtreePool) allocChildren(n uint32) (off, size uint32) {
 	class, size := childClass(n)
-	if off = sp.freeBlocks[class]; off != 0 {
-		sp.freeBlocks[class] = uint32(sp.children[off])
+	if off = sp.takeFree(class, size); off != 0 {
 		return off, size
 	}
 	return sp.bumpChildren(size), size
 }
 
-// Gives back a block that is not at the end of the slab. C calls free here.
-func (sp *subtreePool) freeChildren(off, class uint32) {
-	sp.children[off] = subtree(sp.freeBlocks[class])
-	sp.freeBlocks[class] = off
+// Gives back a block of up to exactChildClasses entries. C calls free here.
+func (sp *subtreePool) freeQuick(off, size uint32) {
+	sp.children[off] = subtree(sp.quickBlocks[size])
+	sp.quickBlocks[size] = off
 }
 
-// array_reserve. A region at the end of the slab grows in place.
+// Gives back a block of any size, or takes one from the quick lists: merges
+// it with a free block behind it and one in front of it. What then reaches
+// the end of the slab is cut off, the rest goes on its list.
+func (sp *subtreePool) mergeFree(off, size uint32) {
+	if n := (cap(sp.children) + 31) / 32; n > len(sp.freeBits) {
+		grown := make([]uint64, n)
+		copy(grown, sp.freeBits)
+		sp.freeBits = grown
+	}
+	if end := off + size; end < uint32(len(sp.children)) && sp.freeBits[end>>5]>>(end&31*2)&1 != 0 {
+		size += sp.unlinkFree(end)
+	}
+	if b := sp.freeBits[(off-1)>>5] >> ((off - 1) & 31 * 2); b&2 != 0 {
+		before := uint32(1)
+		if b&1 == 0 {
+			before = uint32(sp.children[off-1])
+		}
+		off -= before
+		sp.unlinkFree(off)
+		size += before
+	}
+	if off+size == uint32(len(sp.children)) {
+		sp.children = sp.children[:off]
+		return
+	}
+	sp.linkFree(off, size)
+}
+
+// array_reserve. A free block comes first: a region at the end of the slab
+// that only ever grew in place would leave every block freed on the way
+// unused. Without one, such a region grows in place.
 func (sp *subtreePool) arrayReserve(a *subtreeArray, newCap uint32) {
 	if newCap <= a.cap {
 		return
 	}
-	if a.cap > 0 && a.off+a.cap == uint32(len(sp.children)) {
-		_, newCap = childClass(newCap)
-		sp.bumpChildren(newCap - a.cap)
-		a.cap = newCap
-		return
+	class, newCap := childClass(newCap)
+	off := sp.takeFree(class, newCap)
+	if off == 0 {
+		if a.cap > 0 && a.off+a.cap == uint32(len(sp.children)) {
+			sp.bumpChildren(newCap - a.cap)
+			a.cap = newCap
+			return
+		}
+		off = sp.bumpChildren(newCap)
 	}
-	off, newCap := sp.allocChildren(newCap)
 	copy(sp.children[off:off+a.size], sp.children[a.off:a.off+a.size])
-	if a.cap > 0 {
-		class, _ := childClass(a.cap)
-		sp.freeChildren(a.off, class)
-	}
-	a.off, a.cap = off, newCap
+	size := a.size
+	sp.arrayFree(a)
+	*a = subtreeArray{off: off, size: size, cap: newCap}
 }
 
 // _array__grow
@@ -320,9 +482,10 @@ func (sp *subtreePool) arrayFree(a *subtreeArray) {
 	if a.cap > 0 {
 		if a.off+a.cap == uint32(len(sp.children)) {
 			sp.children = sp.children[:a.off]
+		} else if a.cap <= exactChildClasses {
+			sp.freeQuick(a.off, a.cap)
 		} else {
-			class, _ := childClass(a.cap)
-			sp.freeChildren(a.off, class)
+			sp.mergeFree(a.off, a.cap)
 		}
 	}
 	*a = subtreeArray{}
@@ -1109,7 +1272,11 @@ func (sp *subtreePool) release(s subtree) {
 					sp.treeStack = append(sp.treeStack, child)
 				}
 			}
-			sp.freeChildren(th.children, uint32(th.childClass))
+			if class := uint32(th.childClass); class <= exactChildClasses {
+				sp.freeQuick(th.children, class)
+			} else {
+				sp.mergeFree(th.children, childClassSize(class))
+			}
 		}
 		// C frees the children block (which holds a parent's heap data) or
 		// returns a leaf to the pool.
