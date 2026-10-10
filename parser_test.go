@@ -250,8 +250,11 @@ func TestErrorRecoveryMemory(t *testing.T) {
 			if got, limit := p.ChildrenSlabCap(), c.limit*len(src); got > limit {
 				t.Errorf("children slab: %d entries, limit %d", got, limit)
 			}
-			// Not checked where the external scanner allocates on every parse.
-			if testing.AllocsPerRun(1, func() { p.Parse(nil) }) == 0 {
+			// Not checked where the external scanner allocates on every parse,
+			// nor under the race detector: there sync.Pool drops one Put in
+			// four, so the heap chunk pool runs short, and the compiler
+			// allocates the make in stack.moreLink's append.
+			if !raceEnabled && testing.AllocsPerRun(1, func() { p.Parse(nil) }) == 0 {
 				if n := testing.AllocsPerRun(1, func() { p.Parse(src) }); n != 0 {
 					t.Errorf("second parse: %v allocs, want 0", n)
 				}
