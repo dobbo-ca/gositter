@@ -30,3 +30,29 @@ func (l *Language) SmallTableBytes() int {
 
 // ChildrenSlabCap is the capacity of the children slab, in entries.
 func (p *Parser) ChildrenSlabCap() int { return cap(p.pool.children) }
+
+// RepeatFlagsOK reports whether fHasRepeat covers every node with a repeat
+// depth in the last tree, and each of its ancestors. balanceSubtree skips
+// what the flag leaves out.
+func (p *Parser) RepeatFlagsOK() bool {
+	sp := &p.pool
+	stack := []subtree{sp.children[p.tree.root]}
+	for len(stack) > 0 {
+		s := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if sp.childCount(s) == 0 {
+			continue
+		}
+		h := sp.ptr(s)
+		if h.repeatDepth > 0 && h.flags&fHasRepeat == 0 {
+			return false
+		}
+		for _, c := range sp.childrenOf(s) {
+			if sp.childCount(c) > 0 && sp.ptr(c).flags&fHasRepeat != 0 && h.flags&fHasRepeat == 0 {
+				return false
+			}
+			stack = append(stack, c)
+		}
+	}
+	return true
+}

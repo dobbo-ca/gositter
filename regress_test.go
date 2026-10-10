@@ -98,6 +98,9 @@ func TestRegress(t *testing.T) {
 					}
 					if pass == 0 {
 						checkChildren(t, dumps[i], root)
+						if !p.RepeatFlagsOK() {
+							t.Errorf("%s: fHasRepeat misses a repeat node", dumps[i])
+						}
 					}
 					var got bytes.Buffer
 					treedump.Dump(&got, treedump.Wrap(root), fields, src)

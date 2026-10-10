@@ -1566,7 +1566,8 @@ func (p *Parser) condenseStack() uint32 {
 	return minErrorCost
 }
 
-// ts_parser__balance_subtree
+// ts_parser__balance_subtree. C walks every node; only nodes with
+// repeatDepth > 0 change, so subtrees without fHasRepeat are left out.
 func (p *Parser) balanceSubtree() {
 	sp := &p.pool
 	finishedTree := p.finishedTree
@@ -1596,7 +1597,10 @@ func (p *Parser) balanceSubtree() {
 		sp.treeStack = sp.treeStack[:len(sp.treeStack)-1]
 
 		for _, child := range sp.childrenOf(tree) {
-			if sp.childCount(child) > 0 && sp.ptr(child).refCount == 1 {
+			if child.isInline() {
+				continue
+			}
+			if h := sp.ptr(child); h.flags&fHasRepeat != 0 && h.refCount == 1 {
 				sp.treeStack = append(sp.treeStack, child)
 			}
 		}

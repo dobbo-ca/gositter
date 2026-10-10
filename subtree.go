@@ -62,6 +62,9 @@ const (
 	fDependsOnColumn
 	fIsMissing
 	fIsKeyword
+	// Not in C: this node or one below it has repeatDepth > 0, so
+	// balanceSubtree has work in here.
+	fHasRepeat
 )
 
 // SubtreeHeapData. The C union is spread out: node fields, then the external
@@ -1031,7 +1034,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 
 	var namedChildCount, visibleChildCount, errorCost, visibleDescendantCount uint32
 	var dynamicPrecedence int32
-	flags := h.flags &^ (fHasExternalTokens | fDependsOnColumn | fHasExternalScannerStateChange)
+	flags := h.flags &^ (fHasExternalTokens | fDependsOnColumn | fHasExternalScannerStateChange | fHasRepeat)
 	h.repeatDepth = 0
 
 	structuralIndex := uint32(0)
@@ -1080,7 +1083,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 			if size.extent.Row == 0 && cf&fDependsOnColumn != 0 {
 				flags |= fDependsOnColumn
 			}
-			flags |= cf & (fHasExternalScannerStateChange | fHasExternalTokens)
+			flags |= cf & (fHasExternalScannerStateChange | fHasExternalTokens | fHasRepeat)
 
 			cPadding = ch.padding
 			cSize = ch.size
@@ -1195,6 +1198,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 			} else {
 				h.repeatDepth = uint16(sp.repeatDepth(lastChild) + 1)
 			}
+			flags |= fHasRepeat
 		}
 	}
 	h.flags = flags
