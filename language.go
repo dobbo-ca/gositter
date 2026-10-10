@@ -175,38 +175,38 @@ func (l *Language) lookupSmall(state StateID, symbol Symbol) uint16 {
 	return l.scanSmall(state, symbol)
 }
 
-// The small parse table as C scans it.
+// The small parse table as C scans it. It also counts the entries it walks:
+// the comb table takes up to 6 MB and 3 ms to build (scala), so a language
+// gets it only once its scans have walked the small parse table eight times
+// over. Source bytes are no measure of that: error recovery asks for every
+// token of a state and walks 5,000 entries per byte where a clean parse walks
+// 14 to 50.
 func (l *Language) scanSmall(state StateID, symbol Symbol) uint16 {
 	index := l.SmallParseTableMap[uint32(state)-l.LargeStateCount]
 	data := l.SmallParseTable[index:]
 	groupCount := data[0]
 	pos := 1
+	var value uint16
+scan:
 	for i := uint16(0); i < groupCount; i++ {
 		sectionValue := data[pos]
 		symbolCount := int(data[pos+1])
 		pos += 2
 		for _, s := range data[pos : pos+symbolCount] {
 			if s == uint16(symbol) {
-				return sectionValue
+				value = sectionValue
+				break scan
 			}
 		}
 		pos += symbolCount
 	}
-	return 0
+	if l.scanned.Add(int64(pos)) >= 8*int64(len(l.SmallParseTable)) {
+		l.prepare()
+	}
+	return value
 }
 
 const combLongRow = 4 // entries; see prepare
-
-// noteParse counts the bytes of one parse. The table takes up to 6 MB and 3
-// ms to build (scala), so a language gets it only once it has parsed a
-// source byte per four entries of its small parse table: about where the
-// slower scan (35% of a go parse, 57% of cpp) has cost as much as the build.
-// Until then lookups scan.
-func (l *Language) noteParse(n int) {
-	if l.small.Load() == nil && l.parsed.Add(int64(n)) >= int64(len(l.SmallParseTable)/4) {
-		l.prepare()
-	}
-}
 
 // prepare builds the derived lookup table once per Language. Parsers that
 // are mid-parse pick it up at their next lookup: both paths give the same

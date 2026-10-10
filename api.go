@@ -200,7 +200,7 @@ type Language struct {
 
 	// Derived by prepare, see language.go.
 	prepareOnce sync.Once
-	parsed      atomic.Int64 // source bytes seen while small is nil
+	scanned     atomic.Int64 // entries walked by scanSmall
 	small       atomic.Pointer[smallTable]
 }
 
