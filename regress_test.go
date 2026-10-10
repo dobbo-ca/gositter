@@ -81,7 +81,7 @@ func TestRegress(t *testing.T) {
 			if err := p.SetLanguage(l); err != nil {
 				t.Fatal(err)
 			}
-			withErrors := 0
+			withErrors, oneChild := 0, 0
 			for pass := 0; pass < 2; pass++ {
 				for i := range dumps {
 					if pass == 1 {
@@ -101,6 +101,11 @@ func TestRegress(t *testing.T) {
 						if !p.RepeatFlagsOK() {
 							t.Errorf("%s: fHasRepeat misses a repeat node", dumps[i])
 						}
+						n, ok := p.OneChildSummaryOK()
+						if !ok {
+							t.Errorf("%s: summarizeOneChild differs from summarizeChildren", dumps[i])
+						}
+						oneChild += n
 					}
 					var got bytes.Buffer
 					treedump.Dump(&got, treedump.Wrap(root), fields, src)
@@ -109,7 +114,7 @@ func TestRegress(t *testing.T) {
 					}
 				}
 			}
-			t.Logf("%d cases, %d with errors", len(dumps), withErrors)
+			t.Logf("%d cases, %d with errors, %d one-child nodes checked", len(dumps), withErrors, oneChild)
 		})
 	}
 }

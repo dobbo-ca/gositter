@@ -61,3 +61,44 @@ func (p *Parser) RepeatFlagsOK() bool {
 	}
 	return true
 }
+
+// OneChildSummaryOK reports whether summarizeOneChild and summarizeChildren
+// agree on every node of the last tree that newNode sent down the short path.
+func (p *Parser) OneChildSummaryOK() (nodes int, ok bool) {
+	sp := &p.pool
+	stack := []subtree{sp.children[p.tree.root]}
+	for len(stack) > 0 {
+		s := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if sp.childCount(s) == 0 {
+			continue
+		}
+		stack = append(stack, sp.childrenOf(s)...)
+		h := sp.ptr(s)
+		if h.childCount != 1 || h.symbol == SymbolError || h.symbol == SymbolErrorRepeat {
+			continue
+		}
+		// The node as newNode leaves it for the summary.
+		fresh := subtreeHeap{
+			refCount:     1,
+			symbol:       h.symbol,
+			childCount:   1,
+			flags:        h.flags & (fVisible | fNamed),
+			productionID: h.productionID,
+			children:     h.children,
+			childClass:   h.childClass,
+		}
+		saved := *h
+		*h = fresh
+		sp.summarizeChildren(s, p.language)
+		want := *h
+		*h = saved
+		got := fresh
+		sp.summarizeOneChild(&got, fresh.flags, p.language.aliasSequence(uint32(fresh.productionID)), p.language)
+		if got != want {
+			return nodes, false
+		}
+		nodes++
+	}
+	return nodes, true
+}

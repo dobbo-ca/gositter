@@ -1229,6 +1229,95 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 	h.flags = flags
 }
 
+// summarizeChildren for a node newNode has just made, with one child and not
+// an error symbol: half of all reduces. Each line is the loop above with one
+// turn and the sums folded. Not in C.
+func (sp *subtreePool) summarizeOneChild(h *subtreeHeap, flags uint16, aliasSequence []Symbol, lang *Language) {
+	child := sp.children[h.children]
+	var (
+		visibleChildCount, namedChildCount uint32
+		childExtra, childVisible           bool
+		childNamed                         bool
+	)
+	if child.isInline() {
+		n := uint32(uint8(child >> inlSizeBytesShift))
+		h.padding = length{
+			uint32(uint8(child >> inlPaddingBytesShift)),
+			Point{uint32(child>>inlPaddingRowsShift) & 0xF, uint32(uint8(child >> inlPaddingColumnsShift))},
+		}
+		h.size = length{n, Point{0, n}}
+		h.lookaheadBytes = uint32(child>>inlLookaheadBytesShift) & 0xF
+		h.errorCost = 0
+		if child&inlIsMissing != 0 {
+			h.errorCost = errorCostPerMissingTree + errorCostPerRecovery
+		}
+		h.visibleDescendantCount = 0
+		h.dynamicPrecedence = 0
+		h.firstLeafSymbol = Symbol(uint8(child >> inlSymbolShift))
+		h.firstLeafParseState = StateID(uint16(child >> inlParseStateShift))
+		childExtra = child&inlExtra != 0
+		childVisible = child&inlVisible != 0
+		childNamed = child&inlNamed != 0
+	} else {
+		ch := sp.ptr(child)
+		cf := ch.flags
+		if h.size.extent.Row == 0 && cf&fDependsOnColumn != 0 {
+			flags |= fDependsOnColumn
+		}
+		flags |= cf & (fHasExternalScannerStateChange | fHasExternalTokens | fHasRepeat | fFragileLeft | fFragileRight)
+		if ch.symbol == SymbolError {
+			flags |= fFragileLeft | fFragileRight
+			h.parseState = treeStateNone
+		}
+
+		h.padding = ch.padding
+		h.size = ch.size
+		h.lookaheadBytes = ch.lookaheadBytes
+		h.errorCost = ch.errorCost
+		if cf&fIsMissing != 0 {
+			h.errorCost = errorCostPerMissingTree + errorCostPerRecovery
+		}
+		if ch.symbol == SymbolErrorRepeat {
+			h.errorCost = 0
+		}
+		if ch.childCount > 0 {
+			visibleChildCount = ch.visibleChildCount
+			namedChildCount = ch.namedChildCount
+			h.visibleDescendantCount = ch.visibleDescendantCount
+			h.dynamicPrecedence = ch.dynamicPrecedence
+			h.firstLeafSymbol = ch.firstLeafSymbol
+			h.firstLeafParseState = ch.firstLeafParseState
+		} else {
+			h.visibleDescendantCount = 0
+			h.dynamicPrecedence = 0
+			h.firstLeafSymbol = ch.symbol
+			h.firstLeafParseState = ch.parseState
+		}
+		childExtra = cf&fExtra != 0
+		childVisible = cf&fVisible != 0
+		childNamed = cf&fNamed != 0
+	}
+
+	if aliasSequence != nil && aliasSequence[0] != 0 && !childExtra {
+		h.visibleDescendantCount++
+		visibleChildCount = 1
+		namedChildCount = 0
+		if lang.symbolMetadata(aliasSequence[0]).Named {
+			namedChildCount = 1
+		}
+	} else if childVisible {
+		h.visibleDescendantCount++
+		visibleChildCount = 1
+		namedChildCount = 0
+		if childNamed {
+			namedChildCount = 1
+		}
+	}
+	h.visibleChildCount = visibleChildCount
+	h.namedChildCount = namedChildCount
+	h.flags = flags
+}
+
 // ts_subtree_new_node. Takes ownership of the children region. C puts the
 // node's heap data behind the children in the same allocation; here the
 // region becomes the node's children block. At the end of the slab it is cut
@@ -1263,7 +1352,9 @@ func (sp *subtreePool) newNode(symbol Symbol, children *subtreeArray, production
 		flags |= fFragileLeft | fFragileRight
 	}
 	i := sp.allocate()
-	*sp.ptr(subtree(i) << 1) = subtreeHeap{
+	result := subtree(i) << 1
+	h := sp.ptr(result)
+	*h = subtreeHeap{
 		refCount:     1,
 		symbol:       symbol,
 		childCount:   children.size,
@@ -1272,8 +1363,11 @@ func (sp *subtreePool) newNode(symbol Symbol, children *subtreeArray, production
 		children:     children.off,
 		childClass:   uint8(class),
 	}
-	result := subtree(i) << 1
-	sp.summarizeChildren(result, lang)
+	if children.size == 1 && !fragile {
+		sp.summarizeOneChild(h, flags, lang.aliasSequence(productionID), lang)
+	} else {
+		sp.summarizeChildren(result, lang)
+	}
 	return result
 }
 
