@@ -110,34 +110,81 @@ func (n Node) relevantChildCount(includeAnonymous bool) uint32 {
 	return 0
 }
 
-// ts_node__child
+// ts_node__child, with the loop of ts_node_child_iterator_next written out
+// as in preorderChildren: each child subtree is decoded once.
 func (n Node) child(childIndex uint32, includeAnonymous bool) Node {
+	sp := n.tree.pool
+	lang := n.tree.language
 	result := n
 	didDescend := true
 
 	for didDescend {
 		didDescend = false
 
-		var child Node
+		t := result.subtree()
+		if t.isInline() {
+			break
+		}
+		h := sp.ptr(t)
+		if h.childCount == 0 {
+			break
+		}
+		aliasSequence := lang.aliasSequence(uint32(h.productionID))
+		position := length{result.context[0], Point{result.context[1], result.context[2]}}
+		structuralChildIndex := 0
 		index := uint32(0)
-		iterator := result.iterateChildren()
-		for iterator.next(&child) {
-			if child.isRelevant(includeAnonymous) {
+		for i, child := range sp.children[h.children : h.children+h.childCount] {
+			var padding, size length
+			var visible, named, extra bool
+			var grandchildCount uint32
+			if child.isInline() {
+				padding, size = sp.padding(child), sp.size(child)
+				visible, named, extra = child&inlVisible != 0, child&inlNamed != 0, child&inlExtra != 0
+			} else {
+				c := sp.ptr(child)
+				padding, size = c.padding, c.size
+				visible, named, extra = c.flags&fVisible != 0, c.flags&fNamed != 0, c.flags&fExtra != 0
+				// ts_node__relevant_child_count
+				if c.childCount > 0 {
+					grandchildCount = c.namedChildCount
+					if includeAnonymous {
+						grandchildCount = c.visibleChildCount
+					}
+				}
+			}
+			var aliasSymbol Symbol
+			if !extra {
+				if aliasSequence != nil {
+					aliasSymbol = aliasSequence[structuralChildIndex]
+				}
+				structuralChildIndex++
+			}
+			if i > 0 {
+				position = lengthAdd(position, padding)
+			}
+			// ts_node__is_relevant
+			relevant := visible && named
+			if includeAnonymous {
+				relevant = visible || aliasSymbol != 0
+			} else if aliasSymbol != 0 {
+				relevant = lang.symbolMetadata(aliasSymbol).Named
+			}
+			if relevant {
 				if index == childIndex {
-					return child
+					return nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
 				}
 				index++
 			} else {
 				grandchildIndex := childIndex - index
-				grandchildCount := child.relevantChildCount(includeAnonymous)
 				if grandchildIndex < grandchildCount {
 					didDescend = true
-					result = child
+					result = nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
 					childIndex = grandchildIndex
 					break
 				}
 				index += grandchildCount
 			}
+			position = lengthAdd(position, size)
 		}
 	}
 
@@ -396,50 +443,72 @@ recur:
 			}
 		}
 
-		var child Node
-		iterator := self.iterateChildren()
-		for iterator.next(&child) {
-			if !sp.extra(child.subtree()) {
-				index := iterator.structuralChildIndex - 1
-				if index < uint32(fieldMap[0].ChildIndex) {
-					continue
+		// The loop of ts_node_child_iterator_next, as in preorderChildren.
+		h := sp.ptr(self.subtree())
+		aliasSequence := self.tree.language.aliasSequence(uint32(h.productionID))
+		position := length{self.context[0], Point{self.context[1], self.context[2]}}
+		structuralChildIndex := uint32(0)
+		for i, t := range sp.children[h.children : h.children+h.childCount] {
+			var padding, size length
+			var visible, extra bool
+			if t.isInline() {
+				padding, size = sp.padding(t), sp.size(t)
+				visible, extra = t&inlVisible != 0, t&inlExtra != 0
+			} else {
+				c := sp.ptr(t)
+				padding, size = c.padding, c.size
+				visible, extra = c.flags&fVisible != 0, c.flags&fExtra != 0
+			}
+			if i > 0 {
+				position = lengthAdd(position, padding)
+			}
+			if !extra {
+				var aliasSymbol Symbol
+				if aliasSequence != nil {
+					aliasSymbol = aliasSequence[structuralChildIndex]
 				}
+				index := structuralChildIndex
+				structuralChildIndex++
+				if index >= uint32(fieldMap[0].ChildIndex) {
+					child := nodeNew(self.tree, h.children+uint32(i), position, aliasSymbol)
 
-				// Hidden nodes' fields are "inherited" by their visible
-				// parent.
-				if fieldMap[0].Inherited {
-					// If this is the *last* possible child node for this
-					// field, then perform a tail call to avoid recursion.
-					if len(fieldMap) == 1 {
-						self = child
-						continue recur
-					}
+					// Hidden nodes' fields are "inherited" by their visible
+					// parent.
+					if fieldMap[0].Inherited {
+						// If this is the *last* possible child node for this
+						// field, then perform a tail call to avoid recursion.
+						if len(fieldMap) == 1 {
+							self = child
+							continue recur
+						}
 
-					// Otherwise, descend into this child, but if it doesn't
-					// contain the field, continue searching subsequent
-					// children.
-					result := child.ChildByFieldID(fieldID)
-					if result.id != 0 {
-						return result
-					}
-					fieldMap = fieldMap[1:]
-					if len(fieldMap) == 0 {
-						return Node{}
-					}
-				} else if child.isRelevant(true) {
-					return child
-				} else if child.ChildCount() > 0 {
-					// If the field refers to a hidden node with visible
-					// children, return the first visible child.
-					return child.Child(0)
-				} else {
-					// Otherwise, continue searching subsequent children.
-					fieldMap = fieldMap[1:]
-					if len(fieldMap) == 0 {
-						return Node{}
+						// Otherwise, descend into this child, but if it doesn't
+						// contain the field, continue searching subsequent
+						// children.
+						result := child.ChildByFieldID(fieldID)
+						if result.id != 0 {
+							return result
+						}
+						fieldMap = fieldMap[1:]
+						if len(fieldMap) == 0 {
+							return Node{}
+						}
+					} else if visible || aliasSymbol != 0 {
+						return child
+					} else if child.ChildCount() > 0 {
+						// If the field refers to a hidden node with visible
+						// children, return the first visible child.
+						return child.Child(0)
+					} else {
+						// Otherwise, continue searching subsequent children.
+						fieldMap = fieldMap[1:]
+						if len(fieldMap) == 0 {
+							return Node{}
+						}
 					}
 				}
 			}
+			position = lengthAdd(position, size)
 		}
 
 		return Node{}

@@ -197,6 +197,14 @@ func checkChildren(t *testing.T, name string, root gositter.Node) {
 				return
 			}
 		}
+		// The dump compares a field's child by index only; this pins its
+		// position and alias.
+		for id := gositter.FieldID(1); uint32(id) <= n.Language().FieldCount; id++ {
+			if n.ChildByFieldID(id) != n.ChildByFieldIDRef(id) {
+				t.Errorf("%s: %s at %d: ChildByFieldID(%d) differs from the iterator form", name, n.Kind(), n.StartByte(), id)
+				return
+			}
+		}
 		stack = append(stack, all...)
 	}
 }

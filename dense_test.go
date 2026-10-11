@@ -48,6 +48,9 @@ func TestDenseLookup(t *testing.T) {
 			if !built {
 				t.Errorf("small table not built")
 			}
+			if name, ok := lang().FieldIDMismatch(); !ok {
+				t.Errorf("field %q: FieldIDForName differs from the scan", name)
+			}
 			t.Logf("%d KiB", lang().SmallTableBytes()>>10)
 		})
 	}

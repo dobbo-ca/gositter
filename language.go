@@ -153,8 +153,26 @@ func (l *Language) FieldNameForID(id FieldID) string {
 	return ""
 }
 
-// ts_language_field_id_for_name. Returns 0 if there is no such field.
+// FieldIDForName is ts_language_field_id_for_name. The scan's answer for
+// each field name is kept; any other name is scanned.
 func (l *Language) FieldIDForName(name string) FieldID {
+	ids := l.fieldIDs.Load()
+	if ids == nil {
+		m := make(map[string]FieldID, l.FieldCount)
+		for i := uint32(1); i < uint32(uint16(l.FieldCount))+1; i++ {
+			m[l.FieldNames[i]] = l.fieldIDForName(l.FieldNames[i])
+		}
+		ids = &m
+		l.fieldIDs.Store(ids)
+	}
+	if id, ok := (*ids)[name]; ok {
+		return id
+	}
+	return l.fieldIDForName(name)
+}
+
+// ts_language_field_id_for_name. Returns 0 if there is no such field.
+func (l *Language) fieldIDForName(name string) FieldID {
 	count := uint32(uint16(l.FieldCount))
 	for i := uint32(1); i < count+1; i++ {
 		field := l.FieldNames[i]

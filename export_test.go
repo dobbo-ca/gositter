@@ -135,3 +135,100 @@ func (p *Parser) ErrorScansOK() (states int, ok bool) {
 	}
 	return states, true
 }
+
+// FieldIDMismatch compares FieldIDForName with the C scan on every field
+// name, each of its prefixes and each name with a byte added. It returns
+// the first name that differs.
+func (l *Language) FieldIDMismatch() (string, bool) {
+	for _, f := range l.FieldNames {
+		for i := 0; i <= len(f); i++ {
+			for _, name := range []string{f[:i], f[:i] + "x", f[:i] + "\x00"} {
+				if l.FieldIDForName(name) != l.fieldIDForName(name) {
+					return name, false
+				}
+			}
+		}
+	}
+	return "", true
+}
+
+// ChildByFieldIDRef is ts_node_child_by_field_id as first ported, on the
+// child iterator: the reference for ChildByFieldID.
+func (n Node) ChildByFieldIDRef(fieldID FieldID) Node {
+	self := n
+recur:
+	for {
+		if fieldID == 0 || self.ChildCount() == 0 {
+			return Node{}
+		}
+
+		sp := self.tree.pool
+		fieldMap := self.tree.language.fieldMap(uint32(sp.ptr(self.subtree()).productionID))
+		if len(fieldMap) == 0 {
+			return Node{}
+		}
+
+		// The field mappings are sorted by their field id. Scan all the
+		// mappings to find the ones for the given field id.
+		for fieldMap[0].FieldID < fieldID {
+			fieldMap = fieldMap[1:]
+			if len(fieldMap) == 0 {
+				return Node{}
+			}
+		}
+		for fieldMap[len(fieldMap)-1].FieldID > fieldID {
+			fieldMap = fieldMap[:len(fieldMap)-1]
+			if len(fieldMap) == 0 {
+				return Node{}
+			}
+		}
+
+		var child Node
+		iterator := self.iterateChildren()
+		for iterator.next(&child) {
+			if !sp.extra(child.subtree()) {
+				index := iterator.structuralChildIndex - 1
+				if index < uint32(fieldMap[0].ChildIndex) {
+					continue
+				}
+
+				// Hidden nodes' fields are "inherited" by their visible
+				// parent.
+				if fieldMap[0].Inherited {
+					// If this is the *last* possible child node for this
+					// field, then perform a tail call to avoid recursion.
+					if len(fieldMap) == 1 {
+						self = child
+						continue recur
+					}
+
+					// Otherwise, descend into this child, but if it doesn't
+					// contain the field, continue searching subsequent
+					// children.
+					result := child.ChildByFieldIDRef(fieldID)
+					if result.id != 0 {
+						return result
+					}
+					fieldMap = fieldMap[1:]
+					if len(fieldMap) == 0 {
+						return Node{}
+					}
+				} else if child.isRelevant(true) {
+					return child
+				} else if child.ChildCount() > 0 {
+					// If the field refers to a hidden node with visible
+					// children, return the first visible child.
+					return child.Child(0)
+				} else {
+					// Otherwise, continue searching subsequent children.
+					fieldMap = fieldMap[1:]
+					if len(fieldMap) == 0 {
+						return Node{}
+					}
+				}
+			}
+		}
+
+		return Node{}
+	}
+}

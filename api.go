@@ -203,6 +203,7 @@ type Language struct {
 	prepareOnce sync.Once
 	scanned     atomic.Int64 // entries walked by scanSmall
 	small       atomic.Pointer[smallTable]
+	fieldIDs    atomic.Pointer[map[string]FieldID] // see FieldIDForName
 
 	// Set by KindMask: the bit of each symbol, and of ERROR.
 	kindNames []string
