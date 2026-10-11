@@ -875,7 +875,7 @@ func (p *Parser) accept(version uint32, lookahead subtree) {
 
 	pop := p.stack.popAll(version)
 	for i := 0; i < len(pop); i++ {
-		trees := pop[i].subtrees
+		trees := p.stack.popAllSubtrees(version, pop[i])
 
 		root := nullSubtree
 		for j := trees.size - 1; j+1 > 0; j-- {

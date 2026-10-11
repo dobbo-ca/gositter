@@ -234,8 +234,8 @@ func TestErrorRecoveryMemory(t *testing.T) {
 		{"rust_raw_string", rust.Language(), strings.Repeat(`r#"a `, 3000), 16},
 		// Reduces between the frees of error recovery.
 		{"go_comment_end_string", golang.Language(), strings.Repeat(strings.Repeat("*/\n", 3)+strings.Repeat(`"a `, 5), 1500), 16},
-		// 64 pop-all arrays that double together.
-		{"cpp_template", cpp.Language(), strings.Repeat("std::vector<std::map<int, x = 1;\n", 1000), 96},
+		// 64 paths at the end of input: accept holds one array at a time.
+		{"cpp_template", cpp.Language(), strings.Repeat("std::vector<std::map<int, x = 1;\n", 1000), 4},
 		{"rust_match_arm", rust.Language(), strings.Repeat("x => {\n", 3000), 128},
 	}
 	for _, c := range cases {

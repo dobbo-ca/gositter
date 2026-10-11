@@ -39,6 +39,15 @@ type stackIterator struct {
 	subtrees     subtreeArray
 	subtreeCount uint32
 	isPending    bool
+	path         uint32 // index into stack.forks, popAll only
+}
+
+// Where a path of popAll left the path it was copied from: at node, by
+// links[link]. Entry 0 is the path that starts at the head.
+type stackFork struct {
+	parent uint32
+	node   uint32
+	link   uint16
 }
 
 // StackStatus
@@ -85,7 +94,6 @@ const (
 	cbPopCount uint8 = iota
 	cbPopPending
 	cbPopError
-	cbPopAll
 	cbSummarize
 )
 
@@ -94,6 +102,8 @@ type stack struct {
 	heads     []stackHead
 	slices    []stackSlice
 	iterators []stackIterator
+	forks     []stackFork // popAll
+	chain     []uint32    // popAllSubtrees scratch
 	nodes     []stackNode // [0] unused
 	// Links 1 to 7 of the nodes that have them: moreLinks[more[node]], where
 	// 0 means none yet. A node index keeps its entry until reset.
@@ -427,7 +437,7 @@ func (s *stack) addSlice(originalVersion uint32, node uint32, subtrees subtreeAr
 	s.slices = append(s.slices, stackSlice{subtrees, version})
 }
 
-// The five StackCallback functions.
+// The StackCallback functions but pop_all_callback, which popAll has inline.
 func (s *stack) callback(cb uint8, iterator *stackIterator) uint32 {
 	switch cb {
 	case cbPopCount: // pop_count_callback
@@ -452,12 +462,6 @@ func (s *stack) callback(cb uint8, iterator *stackIterator) uint32 {
 				return stackActionPop | stackActionStop
 			}
 			return stackActionStop
-		}
-		return stackActionNone
-
-	case cbPopAll: // pop_all_callback
-		if s.nodes[iterator.node].linkCount == 0 {
-			return stackActionPop
 		}
 		return stackActionNone
 
@@ -802,9 +806,77 @@ func (s *stack) popError(version uint32) subtreeArray {
 	return subtreeArray{}
 }
 
-// ts_stack_pop_all
+// ts_stack_pop_all, in two steps. C hands back every slice with its own copy
+// of the subtrees, up to 64 arrays as long as the stack; after an error near
+// the start of a large input they were most of the memory of the parse.
+// Here the walk keeps no subtrees and records where each path forked;
+// popAllSubtrees walks one path again, so accept holds one array at a time.
+//
+// The loop is ts_stack__iter with pop_all_callback and no subtrees. A slice
+// names its path in subtrees.off.
 func (s *stack) popAll(version uint32) []stackSlice {
-	return s.iter(version, cbPopAll, 0)
+	s.slices = s.slices[:0]
+	s.forks = append(s.forks[:0], stackFork{})
+	s.iterators = append(s.iterators[:0], stackIterator{node: s.heads[version].node})
+
+	for len(s.iterators) > 0 {
+		for i, size := 0, len(s.iterators); i < size; i++ {
+			nodeIndex := s.iterators[i].node
+			node := &s.nodes[nodeIndex]
+
+			if node.linkCount == 0 {
+				s.addSlice(version, nodeIndex, subtreeArray{off: s.iterators[i].path})
+				s.iterators = append(s.iterators[:i], s.iterators[i+1:]...)
+				i--
+				size--
+				continue
+			}
+
+			for j := uint16(1); j <= node.linkCount; j++ {
+				if j == node.linkCount {
+					s.iterators[i].node = node.links[0].node
+				} else {
+					if len(s.iterators) >= maxIteratorCount {
+						continue
+					}
+					s.forks = append(s.forks, stackFork{s.iterators[i].path, nodeIndex, j})
+					s.iterators = append(s.iterators, stackIterator{
+						node: s.link(nodeIndex, int(j)).node,
+						path: uint32(len(s.forks) - 1),
+					})
+				}
+			}
+		}
+	}
+
+	return s.slices
+}
+
+// The subtrees of one slice of popAll, as ts_stack__iter collects them. The
+// stack must not have changed since popAll.
+func (s *stack) popAllSubtrees(version uint32, slice stackSlice) subtreeArray {
+	sp := s.sp
+	s.chain = s.chain[:0]
+	for path := slice.subtrees.off; path != 0; path = s.forks[path].parent {
+		s.chain = append(s.chain, path)
+	}
+
+	var subtrees subtreeArray
+	nodeIndex := s.heads[version].node
+	for node := &s.nodes[nodeIndex]; node.linkCount != 0; node = &s.nodes[nodeIndex] {
+		link := node.links[0]
+		if n := len(s.chain); n > 0 && s.forks[s.chain[n-1]].node == nodeIndex {
+			link = *s.link(nodeIndex, int(s.forks[s.chain[n-1]].link))
+			s.chain = s.chain[:n-1]
+		}
+		nodeIndex = link.node
+		if link.subtree != nullSubtree {
+			sp.arrayPush(&subtrees, link.subtree)
+			sp.retain(link.subtree)
+		}
+	}
+	subtreeSliceReverse(sp.array(subtrees))
+	return subtrees
 }
 
 // ts_stack_record_summary
