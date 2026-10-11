@@ -267,15 +267,54 @@ func (n Node) Preorder(fn func(Node) bool) {
 	}
 }
 
+// The loop of ts_node_child_iterator_next with ts_node__is_relevant and
+// ts_node__relevant_child_count folded in: each child subtree is decoded
+// once, and a leaf costs no iterator.
 func (n Node) preorderChildren(fn func(Node) bool) {
-	var child Node
-	iterator := n.iterateChildren()
-	for iterator.next(&child) {
-		if child.isRelevant(true) {
-			child.Preorder(fn)
-		} else if child.relevantChildCount(true) > 0 {
-			child.preorderChildren(fn)
+	sp := n.tree.pool
+	t := n.subtree()
+	if t.isInline() {
+		return
+	}
+	h := sp.ptr(t)
+	if h.childCount == 0 {
+		return
+	}
+	aliasSequence := n.tree.language.aliasSequence(uint32(h.productionID))
+	position := length{n.context[0], Point{n.context[1], n.context[2]}}
+	structuralChildIndex := 0
+	for i, child := range sp.children[h.children : h.children+h.childCount] {
+		var padding, size length
+		var visible, extra, descend, descendHidden bool
+		if child.isInline() {
+			padding, size = sp.padding(child), sp.size(child)
+			visible, extra = child&inlVisible != 0, child&inlExtra != 0
+		} else {
+			c := sp.ptr(child)
+			padding, size = c.padding, c.size
+			visible, extra = c.flags&fVisible != 0, c.flags&fExtra != 0
+			descend = c.childCount > 0
+			descendHidden = descend && c.visibleChildCount > 0
 		}
+		var aliasSymbol Symbol
+		if !extra {
+			if aliasSequence != nil {
+				aliasSymbol = aliasSequence[structuralChildIndex]
+			}
+			structuralChildIndex++
+		}
+		if i > 0 {
+			position = lengthAdd(position, padding)
+		}
+		node := nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
+		if visible || aliasSymbol != 0 {
+			if fn(node) && descend {
+				node.preorderChildren(fn)
+			}
+		} else if descendHidden {
+			node.preorderChildren(fn)
+		}
+		position = lengthAdd(position, size)
 	}
 }
 
