@@ -1,5 +1,7 @@
 package gositter
 
+import "slices"
+
 // DenseMismatch compares the row-displacement small-table lookup with the C scan for
 // every small state and every symbol value a lookup can carry. It returns
 // the first difference, or ok.
@@ -105,4 +107,31 @@ func (p *Parser) OneChildSummaryOK() (nodes int, ok bool) {
 		nodes++
 	}
 	return nodes, true
+}
+
+// ErrorScansOK reports whether every per-state answer the parser kept for
+// error handling equals a fresh scan of the table, and how many it kept.
+func (p *Parser) ErrorScansOK() (states int, ok bool) {
+	saved := p.language
+	defer func() { p.language = saved }()
+	for key, scan := range p.reduceScans {
+		p.language = key.language
+		if p.potentialReductions(key.state, 1, uint32(uint16(key.language.TokenCount))) != scan.hasShiftAction ||
+			!slices.Equal(p.reduceActions, scan.reduceActions) {
+			return states, false
+		}
+		states++
+	}
+	for key, tokens := range p.missingScans {
+		p.language = key.language
+		kept := p.missingScans
+		p.missingScans = nil
+		fresh := p.missingTokens(key.state)
+		p.missingScans = kept
+		if !slices.Equal(fresh, tokens) {
+			return states, false
+		}
+		states++
+	}
+	return states, true
 }

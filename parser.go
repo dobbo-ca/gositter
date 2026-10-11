@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"math"
+	"slices"
 	"strconv"
 )
 
@@ -39,6 +40,25 @@ type reduceAction struct {
 	productionID      uint16
 }
 
+// What ts_parser__do_all_potential_reductions finds over every token of a
+// state. No C counterpart: C scans the table again at each error.
+type reduceScan struct {
+	reduceActions  []reduceAction
+	hasShiftAction bool
+}
+
+// A parser serves several languages in turn (SetLanguage), so the language
+// is part of the key.
+type scanKey struct {
+	language *Language
+	state    StateID
+}
+
+type missingToken struct {
+	symbol     Symbol
+	stateAfter StateID
+}
+
 // TSParser. Not safe for concurrent use; one per goroutine.
 type Parser struct {
 	lexer           Lexer
@@ -46,6 +66,8 @@ type Parser struct {
 	pool            subtreePool // tree_pool
 	language        *Language
 	reduceActions   []reduceAction
+	reduceScans     map[scanKey]reduceScan
+	missingScans    map[scanKey][]missingToken
 	finishedTree    subtree
 	trailingExtras  []subtree
 	trailingExtras2 []subtree
@@ -912,42 +934,31 @@ func (p *Parser) doAllPotentialReductions(startingVersion uint32, lookaheadSymbo
 		}
 
 		state := p.stack.state(version)
-		hasShiftAction := false
-		p.reduceActions = p.reduceActions[:0]
-
-		var firstSymbol, endSymbol uint32
+		var hasShiftAction bool
+		var reduceActions []reduceAction
 		if lookaheadSymbol != 0 {
-			firstSymbol = uint32(lookaheadSymbol)
-			endSymbol = uint32(lookaheadSymbol + 1) // TSSymbol arithmetic: wraps at 0xFFFF
+			hasShiftAction = p.potentialReductions(state, uint32(lookaheadSymbol),
+				uint32(lookaheadSymbol+1)) // TSSymbol arithmetic: wraps at 0xFFFF
+			reduceActions = p.reduceActions
 		} else {
-			firstSymbol = 1
-			endSymbol = uint32(uint16(p.language.TokenCount))
-		}
-
-		for symbol := firstSymbol; symbol < endSymbol; symbol++ {
-			actions, _ := p.language.tableEntry(state, Symbol(symbol))
-			for _, action := range actions {
-				switch action.Type {
-				case ParseActionTypeShift, ParseActionTypeRecover:
-					if !action.Extra() && !action.Repetition() {
-						hasShiftAction = true
-					}
-				case ParseActionTypeReduce:
-					if action.ChildCount > 0 {
-						p.reduceActionSetAdd(reduceAction{
-							symbol:            action.Symbol,
-							count:             uint32(action.ChildCount),
-							dynamicPrecedence: int32(action.DynamicPrecedence),
-							productionID:      action.ProductionID,
-						})
-					}
+			// Every token of the state: the answer depends on the state
+			// alone, and error handling asks again at each error.
+			key := scanKey{p.language, state}
+			scan, ok := p.reduceScans[key]
+			if !ok {
+				scan.hasShiftAction = p.potentialReductions(state, 1, uint32(uint16(p.language.TokenCount)))
+				scan.reduceActions = slices.Clone(p.reduceActions)
+				if p.reduceScans == nil {
+					p.reduceScans = map[scanKey]reduceScan{}
 				}
+				p.reduceScans[key] = scan
 			}
+			hasShiftAction, reduceActions = scan.hasShiftAction, scan.reduceActions
 		}
 
 		reductionVersion := stackVersionNone
-		for j := 0; j < len(p.reduceActions); j++ {
-			action := p.reduceActions[j]
+		for j := 0; j < len(reduceActions); j++ {
+			action := reduceActions[j]
 
 			reductionVersion = p.reduce(
 				version, action.symbol, action.count,
@@ -973,6 +984,55 @@ func (p *Parser) doAllPotentialReductions(startingVersion uint32, lookaheadSymbo
 	}
 
 	return canShiftLookaheadSymbol
+}
+
+// The symbol loop of ts_parser__do_all_potential_reductions: fills
+// p.reduceActions and reports has_shift_action.
+func (p *Parser) potentialReductions(state StateID, firstSymbol, endSymbol uint32) (hasShiftAction bool) {
+	p.reduceActions = p.reduceActions[:0]
+	for symbol := firstSymbol; symbol < endSymbol; symbol++ {
+		actions, _ := p.language.tableEntry(state, Symbol(symbol))
+		for _, action := range actions {
+			switch action.Type {
+			case ParseActionTypeShift, ParseActionTypeRecover:
+				if !action.Extra() && !action.Repetition() {
+					hasShiftAction = true
+				}
+			case ParseActionTypeReduce:
+				if action.ChildCount > 0 {
+					p.reduceActionSetAdd(reduceAction{
+						symbol:            action.Symbol,
+						count:             uint32(action.ChildCount),
+						dynamicPrecedence: int32(action.DynamicPrecedence),
+						productionID:      action.ProductionID,
+					})
+				}
+			}
+		}
+	}
+	return hasShiftAction
+}
+
+// The tokens ts_parser__handle_error tries as a missing token in a state,
+// each with the state it leads to. Kept per state, as reduceScans is.
+func (p *Parser) missingTokens(state StateID) []missingToken {
+	key := scanKey{p.language, state}
+	tokens, ok := p.missingScans[key]
+	if !ok {
+		tokenCount := uint32(uint16(p.language.TokenCount))
+		for missingSymbol := uint32(1); missingSymbol < tokenCount; missingSymbol++ {
+			stateAfterMissingSymbol := p.language.nextState(state, Symbol(missingSymbol))
+			if stateAfterMissingSymbol == 0 || stateAfterMissingSymbol == state {
+				continue
+			}
+			tokens = append(tokens, missingToken{Symbol(missingSymbol), stateAfterMissingSymbol})
+		}
+		if p.missingScans == nil {
+			p.missingScans = map[scanKey][]missingToken{}
+		}
+		p.missingScans[key] = tokens
+	}
+	return tokens
 }
 
 // ts_reduce_action_set_add (reduce_action.h)
@@ -1237,13 +1297,8 @@ func (p *Parser) handleError(version uint32, lookahead subtree) {
 	didInsertMissingToken := false
 	for v := version; v < versionCount; {
 		if !didInsertMissingToken {
-			state := p.stack.state(v)
-			tokenCount := uint32(uint16(p.language.TokenCount))
-			for missingSymbol := uint32(1); missingSymbol < tokenCount; missingSymbol++ {
-				stateAfterMissingSymbol := p.language.nextState(state, Symbol(missingSymbol))
-				if stateAfterMissingSymbol == 0 || stateAfterMissingSymbol == state {
-					continue
-				}
+			for _, missing := range p.missingTokens(p.stack.state(v)) {
+				missingSymbol, stateAfterMissingSymbol := missing.symbol, missing.stateAfter
 
 				if p.language.hasReduceAction(stateAfterMissingSymbol, sp.leafSymbol(lookahead)) {
 					// The lexer snaps to the next included range, and the
@@ -1255,12 +1310,12 @@ func (p *Parser) handleError(version uint32, lookahead subtree) {
 					lookaheadBytes := sp.totalBytes(lookahead) + sp.lookaheadBytes(lookahead)
 
 					versionWithMissingTree := p.stack.copyVersion(v)
-					missingTree := sp.newMissingLeaf(Symbol(missingSymbol), padding, lookaheadBytes, p.language)
+					missingTree := sp.newMissingLeaf(missingSymbol, padding, lookaheadBytes, p.language)
 					p.stack.push(versionWithMissingTree, missingTree, false, stateAfterMissingSymbol)
 
 					if p.doAllPotentialReductions(versionWithMissingTree, sp.leafSymbol(lookahead)) {
 						if p.lexer.logger != nil {
-							p.log(p.lb().s("recover_with_missing symbol:").s(p.symName(Symbol(missingSymbol))).
+							p.log(p.lb().s("recover_with_missing symbol:").s(p.symName(missingSymbol)).
 								s(", state:").u(uint32(p.stack.state(versionWithMissingTree))))
 						}
 						didInsertMissingToken = true

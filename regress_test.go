@@ -132,7 +132,11 @@ func TestRegress(t *testing.T) {
 					}
 				}
 			}
-			t.Logf("%d cases, %d with errors, %d one-child nodes checked", len(dumps), withErrors, oneChild)
+			scans, ok := p.ErrorScansOK()
+			if !ok {
+				t.Error("a kept error scan differs from a fresh one")
+			}
+			t.Logf("%d cases, %d with errors, %d one-child nodes checked, %d error scans kept", len(dumps), withErrors, oneChild, scans)
 		})
 	}
 }
