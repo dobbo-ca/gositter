@@ -263,14 +263,37 @@ func (n Node) appendChildren(buf []Node, includeAnonymous bool) []Node {
 // slice per node. No C counterpart.
 func (n Node) Preorder(fn func(Node) bool) {
 	if fn(n) {
-		n.preorderChildren(fn)
+		n.preorderChildren(0, fn)
+	}
+}
+
+// PreorderMask is Preorder for an fn that returns true and does nothing else
+// on a node whose kind is not in mask (see Language.KindMask): fn is called
+// for the nodes of those kinds only, and a subtree that holds none of them
+// is not entered. No C counterpart.
+func (n Node) PreorderMask(mask uint32, fn func(Node) bool) {
+	if mask == 0 {
+		n.Preorder(fn)
+		return
+	}
+	sp := n.tree.pool
+	t := n.subtree()
+	symbol := n.alias()
+	if symbol == 0 {
+		symbol = sp.symbol(t)
+	}
+	if n.tree.language.kindBit(symbol)&mask != 0 && !fn(n) {
+		return
+	}
+	if sp.childCount(t) > 0 && sp.ptr(t).kinds()&mask != 0 {
+		n.preorderChildren(mask, fn)
 	}
 }
 
 // The loop of ts_node_child_iterator_next with ts_node__is_relevant and
 // ts_node__relevant_child_count folded in: each child subtree is decoded
-// once, and a leaf costs no iterator.
-func (n Node) preorderChildren(fn func(Node) bool) {
+// once, and a leaf costs no iterator. A mask of 0 walks every node.
+func (n Node) preorderChildren(mask uint32, fn func(Node) bool) {
 	sp := n.tree.pool
 	t := n.subtree()
 	if t.isInline() {
@@ -280,20 +303,24 @@ func (n Node) preorderChildren(fn func(Node) bool) {
 	if h.childCount == 0 {
 		return
 	}
-	aliasSequence := n.tree.language.aliasSequence(uint32(h.productionID))
+	lang := n.tree.language
+	aliasSequence := lang.aliasSequence(uint32(h.productionID))
 	position := length{n.context[0], Point{n.context[1], n.context[2]}}
 	structuralChildIndex := 0
 	for i, child := range sp.children[h.children : h.children+h.childCount] {
 		var padding, size length
 		var visible, extra, descend, descendHidden bool
+		var symbol Symbol
 		if child.isInline() {
 			padding, size = sp.padding(child), sp.size(child)
 			visible, extra = child&inlVisible != 0, child&inlExtra != 0
+			symbol = Symbol(uint8(child >> inlSymbolShift))
 		} else {
 			c := sp.ptr(child)
 			padding, size = c.padding, c.size
 			visible, extra = c.flags&fVisible != 0, c.flags&fExtra != 0
-			descend = c.childCount > 0
+			symbol = c.symbol
+			descend = c.childCount > 0 && (mask == 0 || c.kinds()&mask != 0)
 			descendHidden = descend && c.visibleChildCount > 0
 		}
 		var aliasSymbol Symbol
@@ -306,13 +333,19 @@ func (n Node) preorderChildren(fn func(Node) bool) {
 		if i > 0 {
 			position = lengthAdd(position, padding)
 		}
-		node := nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
 		if visible || aliasSymbol != 0 {
-			if fn(node) && descend {
-				node.preorderChildren(fn)
+			if aliasSymbol != 0 {
+				symbol = aliasSymbol
+			}
+			node := nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
+			if mask == 0 || lang.kindBit(symbol)&mask != 0 {
+				descend = fn(node) && descend
+			}
+			if descend {
+				node.preorderChildren(mask, fn)
 			}
 		} else if descendHidden {
-			node.preorderChildren(fn)
+			nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol).preorderChildren(mask, fn)
 		}
 		position = lengthAdd(position, size)
 	}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -60,6 +61,21 @@ var regressLangs = map[string]func() *gositter.Language{
 	"zig":        zig.Language,
 }
 
+// The kinds each grammar names to KindMask: ERROR and up to 31 symbol names
+// spread over the table, named here because a language takes them before it parses.
+var regressKinds = map[string]map[string]uint32{}
+
+func init() {
+	for name, lang := range regressLangs {
+		l := lang()
+		kinds := map[string]uint32{"ERROR": l.KindMask("ERROR")}
+		for i := 1; i < len(l.SymbolNames) && len(kinds) < 32; i += len(l.SymbolNames)/40 + 1 {
+			kinds[l.SymbolNames[i]] = l.KindMask(l.SymbolNames[i])
+		}
+		regressKinds[name] = kinds
+	}
+}
+
 // Replays testdata/regress/<grammar>/<file> against <file>.dump.gz, the dump
 // the C runtime gave for it (oracle dump-c, see scratch/ident/mkregress.sh).
 // Each grammar runs twice on one parser, the second time in reverse order, so
@@ -99,6 +115,7 @@ func TestRegress(t *testing.T) {
 					if pass == 0 {
 						checkChildren(t, dumps[i], root)
 						checkPreorder(t, dumps[i], root)
+						checkPreorderMask(t, dumps[i], root, regressKinds[name])
 						if !p.RepeatFlagsOK() {
 							t.Errorf("%s: fHasRepeat misses a repeat node", dumps[i])
 						}
@@ -223,4 +240,35 @@ func checkPreorder(t *testing.T, name string, root gositter.Node) {
 	if bad || i != len(want) {
 		t.Errorf("%s: full Preorder visits %d nodes, the Children walk %d, or the order differs", name, i, len(want))
 	}
+}
+
+// PreorderMask must call fn for the nodes of its kinds that Preorder visits
+// when fn refuses some of them (here: every third), and for no other node.
+func checkPreorderMask(t *testing.T, name string, root gositter.Node, kinds map[string]uint32) {
+	skip := func(n gositter.Node) bool { return n.StartByte()%3 == 0 }
+	var want, got []gositter.Node
+	walk := func(mask uint32) {
+		want, got = want[:0], got[:0]
+		root.Preorder(func(n gositter.Node) bool {
+			if kinds[n.Kind()]&mask == 0 {
+				return true
+			}
+			want = append(want, n)
+			return !skip(n)
+		})
+		root.PreorderMask(mask, func(n gositter.Node) bool {
+			got = append(got, n)
+			return !skip(n)
+		})
+		if !slices.Equal(got, want) {
+			t.Errorf("%s: PreorderMask(%#x) calls fn on %d nodes, Preorder visits %d of those kinds, or they differ", name, mask, len(got), len(want))
+		}
+	}
+	all := uint32(0)
+	for _, bit := range kinds {
+		walk(bit)
+		all |= bit
+	}
+	walk(all)
+	walk(all & 0x00ff00ff)
 }

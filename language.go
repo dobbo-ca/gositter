@@ -102,6 +102,48 @@ func (l *Language) SymbolName(s Symbol) string {
 	return ""
 }
 
+// KindMask returns the bits that stand for the named node kinds in
+// Node.PreorderMask, giving each new name the next of 32 bits. A tree knows
+// the kinds named before it was parsed, and the language is not locked: name
+// every kind before the first Parse. No C counterpart.
+func (l *Language) KindMask(kinds ...string) uint32 {
+	var mask uint32
+	for _, kind := range kinds {
+		i := slices.Index(l.kindNames, kind)
+		if i < 0 {
+			i = len(l.kindNames)
+			if i == 32 {
+				panic("gositter: more than 32 kinds named to KindMask")
+			}
+			l.kindNames = append(l.kindNames, kind)
+			if l.kindBits == nil {
+				l.kindBits = make([]uint32, l.symbolCount())
+			}
+			for s, name := range l.SymbolNames[:l.symbolCount()] {
+				if name == kind {
+					l.kindBits[s] |= 1 << i
+				}
+			}
+			if kind == "ERROR" {
+				l.kindError = 1 << i
+			}
+		}
+		mask |= 1 << i
+	}
+	return mask
+}
+
+// The KindMask bit of a symbol; 0 for a kind nobody named.
+func (l *Language) kindBit(s Symbol) uint32 {
+	if int(s) < len(l.kindBits) {
+		return l.kindBits[s]
+	}
+	if s == SymbolError {
+		return l.kindError
+	}
+	return 0
+}
+
 // ts_language_field_name_for_id. Returns "" for 0 or out of range.
 func (l *Language) FieldNameForID(id FieldID) string {
 	count := l.FieldCount

@@ -151,7 +151,8 @@ type LanguageMetadata struct {
 
 // Language mirrors TSLanguage (ABI 15) field for field. C pointers become
 // slices; two-dimensional C arrays are flattened row-major. A Language is
-// immutable after construction and shared by all parsers.
+// shared by all parsers and, KindMask before the first parse aside,
+// immutable after construction.
 type Language struct {
 	ABIVersion             uint32
 	SymbolCount            uint32
@@ -202,6 +203,11 @@ type Language struct {
 	prepareOnce sync.Once
 	scanned     atomic.Int64 // entries walked by scanSmall
 	small       atomic.Pointer[smallTable]
+
+	// Set by KindMask: the bit of each symbol, and of ERROR.
+	kindNames []string
+	kindBits  []uint32
+	kindError uint32
 }
 
 type smallTable struct {

@@ -102,8 +102,15 @@ type subtreeHeap struct {
 	children               uint32 // offset into subtreePool.children
 
 	// Error terminal subtrees (childCount == 0 && symbol == SymbolError).
+	// A subtree with children keeps its kind mask in the same four bytes.
 	lookaheadChar int32
 }
+
+// The KindMask bits of the nodes below a subtree with children, with their
+// aliases. No C counterpart.
+func (h *subtreeHeap) kinds() uint32 { return uint32(h.lookaheadChar) }
+
+func (h *subtreeHeap) setKinds(mask uint32) { h.lookaheadChar = int32(mask) }
 
 // The external scanner state range of an external terminal subtree
 // (childCount == 0 && fHasExternalTokens).
@@ -1065,6 +1072,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 
 	var namedChildCount, visibleChildCount, errorCost, visibleDescendantCount uint32
 	var dynamicPrecedence int32
+	var kinds uint32
 	flags := h.flags &^ (fHasExternalTokens | fDependsOnColumn | fHasExternalScannerStateChange | fHasRepeat)
 	h.repeatDepth = 0
 
@@ -1130,6 +1138,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 				cNamedChildCount = ch.namedChildCount
 				cVisibleDescendantCount = ch.visibleDescendantCount
 				cDynamicPrecedence = ch.dynamicPrecedence
+				kinds |= ch.kinds()
 			}
 			childExtra = cf&fExtra != 0
 			childVisible = cf&fVisible != 0
@@ -1169,8 +1178,10 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 
 		dynamicPrecedence += cDynamicPrecedence
 		visibleDescendantCount += cVisibleDescendantCount
+		kinds |= lang.kindBit(cSymbol)
 
 		if aliasSequence != nil && aliasSequence[structuralIndex] != 0 && !childExtra {
+			kinds |= lang.kindBit(aliasSequence[structuralIndex])
 			visibleDescendantCount++
 			visibleChildCount++
 			if lang.symbolMetadata(aliasSequence[structuralIndex]).Named {
@@ -1198,6 +1209,7 @@ func (sp *subtreePool) summarizeChildren(self subtree, lang *Language) {
 	h.visibleChildCount = visibleChildCount
 	h.visibleDescendantCount = visibleDescendantCount
 	h.dynamicPrecedence = dynamicPrecedence
+	h.setKinds(kinds)
 	h.lookaheadBytes = lookaheadEndByte - size.bytes - padding.bytes
 
 	if selfIsError {
@@ -1242,6 +1254,7 @@ func (sp *subtreePool) summarizeOneChild(h *subtreeHeap, flags uint16, aliasSequ
 	child := sp.children[h.children]
 	var (
 		visibleChildCount, namedChildCount uint32
+		kinds                              uint32
 		childExtra, childVisible           bool
 		childNamed                         bool
 	)
@@ -1261,6 +1274,7 @@ func (sp *subtreePool) summarizeOneChild(h *subtreeHeap, flags uint16, aliasSequ
 		h.dynamicPrecedence = 0
 		h.firstLeafSymbol = Symbol(uint8(child >> inlSymbolShift))
 		h.firstLeafParseState = StateID(uint16(child >> inlParseStateShift))
+		kinds = lang.kindBit(h.firstLeafSymbol)
 		childExtra = child&inlExtra != 0
 		childVisible = child&inlVisible != 0
 		childNamed = child&inlNamed != 0
@@ -1286,7 +1300,9 @@ func (sp *subtreePool) summarizeOneChild(h *subtreeHeap, flags uint16, aliasSequ
 		if ch.symbol == SymbolErrorRepeat {
 			h.errorCost = 0
 		}
+		kinds = lang.kindBit(ch.symbol)
 		if ch.childCount > 0 {
+			kinds |= ch.kinds()
 			visibleChildCount = ch.visibleChildCount
 			namedChildCount = ch.namedChildCount
 			h.visibleDescendantCount = ch.visibleDescendantCount
@@ -1305,6 +1321,7 @@ func (sp *subtreePool) summarizeOneChild(h *subtreeHeap, flags uint16, aliasSequ
 	}
 
 	if aliasSequence != nil && aliasSequence[0] != 0 && !childExtra {
+		kinds |= lang.kindBit(aliasSequence[0])
 		h.visibleDescendantCount++
 		visibleChildCount = 1
 		namedChildCount = 0
@@ -1321,6 +1338,7 @@ func (sp *subtreePool) summarizeOneChild(h *subtreeHeap, flags uint16, aliasSequ
 	}
 	h.visibleChildCount = visibleChildCount
 	h.namedChildCount = namedChildCount
+	h.setKinds(kinds)
 	h.flags = flags
 }
 

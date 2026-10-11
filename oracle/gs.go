@@ -7,6 +7,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/dobbo-ca/gositter"
 	"github.com/dobbo-ca/gositter/internal/treedump"
@@ -27,6 +29,10 @@ func openGo(grammar string) (parser, error) {
 		return nil, fmt.Errorf("gositter grammar %q is not in this build (see build.sh)", grammar)
 	}
 	lang := f()
+	// GS_KINDS=a,b: the parse then keeps kind masks, as for PreorderMask.
+	if k := os.Getenv("GS_KINDS"); k != "" {
+		lang.KindMask(strings.Split(k, ",")...)
+	}
 	p := gositter.NewParser()
 	if err := p.SetLanguage(lang); err != nil {
 		return nil, err
