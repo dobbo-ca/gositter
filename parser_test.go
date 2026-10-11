@@ -288,3 +288,36 @@ func TestHeapChunksShared(t *testing.T) {
 		t.Error("tree differs after the chunks went through the pool")
 	}
 }
+
+// A reset keeps the children slab of a large parse for the next one, and
+// drops it once a parse has used a small part of it.
+func TestChildrenSlabDropped(t *testing.T) {
+	large := []byte(strings.Repeat("func f() { g(1, 2, 3) }\n", 20000))
+	small := []byte("func f() { g(1, 2, 3) }\n")
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	p.Parse(large)
+	n := p.ChildrenSlabCap()
+	if n <= gositter.ShrinkChildren {
+		t.Fatalf("input too small: slab of %d entries", n)
+	}
+	p.Reset()
+	p.Reset()
+	if got := p.ChildrenSlabCap(); got != n {
+		t.Errorf("after the large parse: slab of %d entries, want %d", got, n)
+	}
+	want := p.Parse(small).RootNode().String()
+	p.Reset()
+	if got := p.ChildrenSlabCap(); got >= gositter.ShrinkChildren {
+		t.Errorf("after the small parse: slab of %d entries, want it dropped", got)
+	}
+	if got := p.Parse(small).RootNode().String(); got != want {
+		t.Error("tree differs on the new slab")
+	}
+	q := gositter.NewParser()
+	q.SetLanguage(golang.Language())
+	wantLarge := q.Parse(large).RootNode().String()
+	if got := p.Parse(large).RootNode().String(); got != wantLarge {
+		t.Error("large tree differs on the regrown slab")
+	}
+}

@@ -137,6 +137,11 @@ type heapChunk [1 << heapChunkBits]subtreeHeap
 // need, not one high-water mark each.
 const keptHeapChunks = 8
 
+// A reset drops a children slab above shrinkChildren entries when the parse
+// before it used under an eighth of it: a pooled parser held the slab of its
+// largest input for good, and that counted in every heap goal.
+const shrinkChildren = 1 << 16
+
 var heapChunks = sync.Pool{New: func() any { return new(heapChunk) }}
 
 // reserveHeap takes the next chunk from heapChunks, one chunk ahead of need.
@@ -223,8 +228,14 @@ func (sp *subtreePool) reset() {
 		}
 		sp.heap = sp.heap[:keptHeapChunks]
 	}
-	clear(sp.freeBits[:min(len(sp.freeBits), (len(sp.children)+31)/32)])
-	sp.children = sp.children[:1]
+	// len 1: nothing was parsed since the last reset
+	if n := len(sp.children); n > 1 && cap(sp.children) > shrinkChildren && n < cap(sp.children)/8 {
+		sp.children = make([]subtree, 1, 4096)
+		sp.freeBits = nil
+	} else {
+		clear(sp.freeBits[:min(len(sp.freeBits), (len(sp.children)+31)/32)])
+		sp.children = sp.children[:1]
+	}
 	sp.freeBlocks = [childClassCount]uint32{}
 	sp.freeLists = [3]uint64{}
 	sp.quickBlocks = [exactChildClasses + 1]uint32{}
