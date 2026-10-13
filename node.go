@@ -2,13 +2,15 @@ package gositter
 
 // node.c.
 
-// TSNode. A small comparable value; the zero Node is the null node. id is
+// TSNode, packed into four fields so the compiler keeps it in registers.
+// A small comparable value; the zero Node is the null node. id is
 // the slot of the subtree in the tree's children slab, where C has a
 // const Subtree *.
 type Node struct {
-	tree    *Tree
-	id      uint32
-	context [4]uint32 // start byte, start row, start column, alias symbol
+	tree *Tree
+	id   uint32
+	x    uint64 // start byte, alias symbol << 32
+	y    uint64 // start row, start column << 32
 }
 
 // NodeChildIterator
@@ -26,15 +28,16 @@ type nodeChildIterator struct {
 // ts_node_new
 func nodeNew(tree *Tree, id uint32, position length, alias Symbol) Node {
 	return Node{
-		tree:    tree,
-		id:      id,
-		context: [4]uint32{position.bytes, position.extent.Row, position.extent.Column, uint32(alias)},
+		tree: tree,
+		id:   id,
+		x:    uint64(position.bytes) | uint64(alias)<<32,
+		y:    uint64(position.extent.Row) | uint64(position.extent.Column)<<32,
 	}
 }
 
 // ts_node__alias
 func (n Node) alias() Symbol {
-	return Symbol(n.context[3])
+	return Symbol(n.x >> 32)
 }
 
 // ts_node__subtree
@@ -53,7 +56,7 @@ func (n Node) iterateChildren() nodeChildIterator {
 	return nodeChildIterator{
 		tree:          n.tree,
 		parent:        t,
-		position:      length{n.context[0], Point{n.context[1], n.context[2]}},
+		position:      length{uint32(n.x), Point{uint32(n.y), uint32(n.y >> 32)}},
 		aliasSequence: n.tree.language.aliasSequence(uint32(h.productionID)),
 		children:      h.children,
 		childCount:    h.childCount,
@@ -130,7 +133,7 @@ func (n Node) child(childIndex uint32, includeAnonymous bool) Node {
 			break
 		}
 		aliasSequence := lang.aliasSequence(uint32(h.productionID))
-		position := length{result.context[0], Point{result.context[1], result.context[2]}}
+		position := length{uint32(result.x), Point{uint32(result.y), uint32(result.y >> 32)}}
 		structuralChildIndex := 0
 		index := uint32(0)
 		for i, child := range sp.children[h.children : h.children+h.childCount] {
@@ -249,17 +252,17 @@ func (n Node) HasError() bool {
 
 // ts_node_start_byte
 func (n Node) StartByte() uint32 {
-	return n.context[0]
+	return uint32(n.x)
 }
 
 // ts_node_end_byte
 func (n Node) EndByte() uint32 {
-	return n.context[0] + n.tree.pool.size(n.subtree()).bytes
+	return uint32(n.x) + n.tree.pool.size(n.subtree()).bytes
 }
 
 // ts_node_start_point
 func (n Node) StartPosition() Point {
-	return Point{n.context[1], n.context[2]}
+	return Point{uint32(n.y), uint32(n.y >> 32)}
 }
 
 // ts_node_end_point
@@ -352,7 +355,7 @@ func (n Node) preorderChildren(mask uint32, fn func(Node) bool) {
 	}
 	lang := n.tree.language
 	aliasSequence := lang.aliasSequence(uint32(h.productionID))
-	position := length{n.context[0], Point{n.context[1], n.context[2]}}
+	position := length{uint32(n.x), Point{uint32(n.y), uint32(n.y >> 32)}}
 	structuralChildIndex := 0
 	for i, child := range sp.children[h.children : h.children+h.childCount] {
 		var padding, size length
@@ -446,7 +449,7 @@ recur:
 		// The loop of ts_node_child_iterator_next, as in preorderChildren.
 		h := sp.ptr(self.subtree())
 		aliasSequence := self.tree.language.aliasSequence(uint32(h.productionID))
-		position := length{self.context[0], Point{self.context[1], self.context[2]}}
+		position := length{uint32(self.x), Point{uint32(self.y), uint32(self.y >> 32)}}
 		structuralChildIndex := uint32(0)
 		for i, t := range sp.children[h.children : h.children+h.childCount] {
 			var padding, size length
