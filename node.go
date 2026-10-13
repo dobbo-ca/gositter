@@ -114,7 +114,9 @@ func (n Node) relevantChildCount(includeAnonymous bool) uint32 {
 }
 
 // ts_node__child, with the loop of ts_node_child_iterator_next written out
-// as in preorderChildren: each child subtree is decoded once.
+// as in preorderChildren: each child subtree is decoded once. A node with no
+// alias sequence (every ERROR node) has its own loop, which needs no alias
+// to tell ts_node__is_relevant and has one body per kind of child.
 func (n Node) child(childIndex uint32, includeAnonymous bool) Node {
 	sp := n.tree.pool
 	lang := n.tree.language
@@ -136,7 +138,50 @@ func (n Node) child(childIndex uint32, includeAnonymous bool) Node {
 		position := length{uint32(result.x), Point{uint32(result.y), uint32(result.y >> 32)}}
 		structuralChildIndex := 0
 		index := uint32(0)
-		for i, child := range sp.children[h.children : h.children+h.childCount] {
+		children := sp.children[h.children : h.children+h.childCount]
+		if aliasSequence == nil {
+			for i, child := range children {
+				if child.isInline() {
+					if i > 0 {
+						position = lengthAdd(position, sp.padding(child))
+					}
+					if child&inlVisible != 0 && (includeAnonymous || child&inlNamed != 0) {
+						if index == childIndex {
+							return nodeNew(n.tree, h.children+uint32(i), position, 0)
+						}
+						index++
+					}
+					position = lengthAdd(position, sp.size(child))
+					continue
+				}
+				c := sp.ptr(child)
+				if i > 0 {
+					position = lengthAdd(position, c.padding)
+				}
+				if c.flags&fVisible != 0 && (includeAnonymous || c.flags&fNamed != 0) {
+					if index == childIndex {
+						return nodeNew(n.tree, h.children+uint32(i), position, 0)
+					}
+					index++
+				} else if c.childCount > 0 {
+					// ts_node__relevant_child_count
+					grandchildCount := c.namedChildCount
+					if includeAnonymous {
+						grandchildCount = c.visibleChildCount
+					}
+					if grandchildIndex := childIndex - index; grandchildIndex < grandchildCount {
+						didDescend = true
+						result = nodeNew(n.tree, h.children+uint32(i), position, 0)
+						childIndex = grandchildIndex
+						break
+					}
+					index += grandchildCount
+				}
+				position = lengthAdd(position, c.size)
+			}
+			continue
+		}
+		for i, child := range children {
 			var padding, size length
 			var visible, named, extra bool
 			var grandchildCount uint32

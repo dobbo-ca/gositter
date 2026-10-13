@@ -255,6 +255,27 @@ func checkChildren(t *testing.T, name string, root gositter.Node) {
 				return
 			}
 		}
+		// Every index and two past the end, against the loop Child had
+		// before the one for a node with no alias sequence.
+		for _, anonymous := range []bool{true, false} {
+			count := uint32(len(named))
+			if anonymous {
+				count = uint32(len(all))
+			}
+			for i := uint32(0); i < count+2; i++ {
+				if count > 2000 && i < count && i%37 != 0 {
+					continue
+				}
+				got := n.NamedChild(i)
+				if anonymous {
+					got = n.Child(i)
+				}
+				if got != n.ChildRef(i, anonymous) {
+					t.Errorf("%s: %s at %d: child %d of %d (anonymous %v) differs from ChildRef", name, n.Kind(), n.StartByte(), i, count, anonymous)
+					return
+				}
+			}
+		}
 		// The dump compares a field's child by index only; this pins its
 		// position and alias.
 		for id := gositter.FieldID(1); uint32(id) <= n.Language().FieldCount; id++ {
@@ -264,6 +285,41 @@ func checkChildren(t *testing.T, name string, root gositter.Node) {
 			}
 		}
 		stack = append(stack, all...)
+	}
+}
+
+// A UTF-16 copy of a source parses to an ERROR node with thousands of
+// children and no alias sequence: the node a Child(i) walk spends its time in.
+func TestChildrenWide(t *testing.T) {
+	for _, name := range []string{"json", "rust", "tsx", "typescript"} {
+		paths, _ := filepath.Glob(filepath.Join("testdata", "regress", name, "*.dump.gz"))
+		wide := []byte{0xFF, 0xFE}
+		for _, path := range paths {
+			src, err := os.ReadFile(strings.TrimSuffix(path, ".dump.gz"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, b := range src {
+				wide = append(wide, b, 0)
+			}
+			if len(wide) > 60000 {
+				break
+			}
+		}
+		p := gositter.NewParser()
+		if err := p.SetLanguage(regressLangs[name]()); err != nil {
+			t.Fatal(err)
+		}
+		root := p.Parse(wide).RootNode()
+		widest := uint32(0)
+		root.Preorder(func(n gositter.Node) bool {
+			widest = max(widest, n.ChildCount())
+			return true
+		})
+		if widest < 5000 {
+			t.Errorf("%s: widest node has %d children, want 5000 or more", name, widest)
+		}
+		checkChildren(t, name+" as UTF-16", root)
 	}
 }
 

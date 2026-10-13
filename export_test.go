@@ -236,6 +236,88 @@ recur:
 	}
 }
 
+// ChildRef is Node.child as it was with one loop for every node: the
+// reference for the loop of a node with no alias sequence. Do not edit it
+// along with Node.child.
+func (n Node) ChildRef(childIndex uint32, includeAnonymous bool) Node {
+	sp := n.tree.pool
+	lang := n.tree.language
+	result := n
+	didDescend := true
+
+	for didDescend {
+		didDescend = false
+
+		t := result.subtree()
+		if t.isInline() {
+			break
+		}
+		h := sp.ptr(t)
+		if h.childCount == 0 {
+			break
+		}
+		aliasSequence := lang.aliasSequence(uint32(h.productionID))
+		position := length{uint32(result.x), Point{uint32(result.y), uint32(result.y >> 32)}}
+		structuralChildIndex := 0
+		index := uint32(0)
+		for i, child := range sp.children[h.children : h.children+h.childCount] {
+			var padding, size length
+			var visible, named, extra bool
+			var grandchildCount uint32
+			if child.isInline() {
+				padding, size = sp.padding(child), sp.size(child)
+				visible, named, extra = child&inlVisible != 0, child&inlNamed != 0, child&inlExtra != 0
+			} else {
+				c := sp.ptr(child)
+				padding, size = c.padding, c.size
+				visible, named, extra = c.flags&fVisible != 0, c.flags&fNamed != 0, c.flags&fExtra != 0
+				// ts_node__relevant_child_count
+				if c.childCount > 0 {
+					grandchildCount = c.namedChildCount
+					if includeAnonymous {
+						grandchildCount = c.visibleChildCount
+					}
+				}
+			}
+			var aliasSymbol Symbol
+			if !extra {
+				if aliasSequence != nil {
+					aliasSymbol = aliasSequence[structuralChildIndex]
+				}
+				structuralChildIndex++
+			}
+			if i > 0 {
+				position = lengthAdd(position, padding)
+			}
+			// ts_node__is_relevant
+			relevant := visible && named
+			if includeAnonymous {
+				relevant = visible || aliasSymbol != 0
+			} else if aliasSymbol != 0 {
+				relevant = lang.symbolMetadata(aliasSymbol).Named
+			}
+			if relevant {
+				if index == childIndex {
+					return nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
+				}
+				index++
+			} else {
+				grandchildIndex := childIndex - index
+				if grandchildIndex < grandchildCount {
+					didDescend = true
+					result = nodeNew(n.tree, h.children+uint32(i), position, aliasSymbol)
+					childIndex = grandchildIndex
+					break
+				}
+				index += grandchildCount
+			}
+			position = lengthAdd(position, size)
+		}
+	}
+
+	return Node{}
+}
+
 // ts_subtree_summarize_children on the ts_subtree_* accessors, a line of C to
 // a line: the reference for summarize, summarizeTwoHeap and both loops of
 // summarizeChildren. The kind mask and fHasRepeat are not in C.
