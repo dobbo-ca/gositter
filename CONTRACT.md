@@ -495,7 +495,8 @@ The runtime agent owns the details. These are the constraints.
   `MAX_COST_DIFFERENCE`, `ERROR_COST_PER_*`, `MAX_LINK_COUNT`,
   `MAX_NODE_POOL_SIZE`, `TS_MAX_INLINE_TREE_LENGTH`,
   `TS_MAX_TREE_POOL_SIZE`, ...). Where C behaviour depends on pool reuse or on
-  array capacity, keep it.
+  array capacity, keep it. A summary may be skipped or resumed where it equals
+  the full recompute (`compress`, `summarizeChildren`, `recoverToState`).
 - `Subtree` stays an 8-byte value: either the inline leaf with the bit layout
   of `SubtreeInlineData`, or a handle (index) into a per-parser slab of
   `SubtreeHeapData`. No Go pointer inside a `Subtree`, so slabs of them are

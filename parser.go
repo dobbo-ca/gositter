@@ -799,11 +799,12 @@ func (p *Parser) reduce(
 }
 
 // ts_parser__reduce followed by the ts_stack_renumber_version of
-// ts_parser__advance, for the last action of a table entry when this version
-// owns an unbranched chain and the reduced version could not merge with
-// another one. The general path would pop one slice into a new version, fail
-// every ts_stack_merge, and move that version back over this one. Reports
-// false and changes nothing if the stack is not of that shape.
+// ts_parser__advance, for the last action of a table entry that does
+// anything (see onlyRepetitions) when this version owns an unbranched chain
+// and the reduced version could not merge with another one. The general path
+// would pop one slice into a new version, fail every ts_stack_merge, and move
+// that version back over this one. Reports false and changes nothing if the
+// stack is not of that shape.
 func (p *Parser) reduceInPlace(
 	version uint32, symbol Symbol, count uint32,
 	dynamicPrecedence int32, productionID uint16,
@@ -864,6 +865,17 @@ func (p *Parser) reduceInPlace(
 	s.push(version, parent, false, nextState)
 	for _, t := range p.trailingExtras {
 		s.push(version, t, false, nextState)
+	}
+	return true
+}
+
+// Whether each of the actions is a SHIFT_REPEAT, which ts_parser__advance
+// skips: the action before them is then the last one that does anything.
+func onlyRepetitions(actions []ParseAction) bool {
+	for _, a := range actions {
+		if a.Type != ParseActionTypeShift || !a.Repetition() {
+			return false
+		}
 	}
 	return true
 }
@@ -1072,11 +1084,16 @@ func (p *Parser) recoverToState(version uint32, depth uint32, goalState StateID)
 			continue
 		}
 
+		// Not in ts_parser__recover_to_state: the summary of the ERROR node
+		// this one replaces. summarizeChildren goes on from it, where C
+		// sums every child again at each recovery.
+		var resume subtreeHeap
 		errorTrees := p.stack.popError(slice.version)
 		if errorTrees.size > 0 {
 			errorTree := sp.children[errorTrees.off]
 			errorChildCount := sp.childCount(errorTree)
 			if errorChildCount > 0 {
+				resume = *sp.ptr(errorTree)
 				sp.arraySplice(&slice.subtrees, 0, 0, sp.childrenOf(errorTree))
 				for j := uint32(0); j < errorChildCount; j++ {
 					sp.retain(sp.children[slice.subtrees.off+j])
@@ -1088,6 +1105,7 @@ func (p *Parser) recoverToState(version uint32, depth uint32, goalState StateID)
 		sp.arrayRemoveTrailingExtras(&slice.subtrees, &p.trailingExtras)
 
 		if slice.subtrees.size > 0 {
+			sp.resume = resume
 			errorNode := sp.newErrorNode(&slice.subtrees, true, p.language)
 			p.stack.push(slice.version, errorNode, false, goalState)
 		} else {
@@ -1410,7 +1428,7 @@ func (p *Parser) advance(version uint32) bool {
 					p.log(p.lb().s("reduce sym:").s(p.symName(action.Symbol)).
 						s(", child_count:").u(uint32(action.ChildCount)))
 				}
-				if i == len(actions)-1 && p.reduceInPlace(
+				if (i == len(actions)-1 || onlyRepetitions(actions[i+1:])) && p.reduceInPlace(
 					version, action.Symbol, uint32(action.ChildCount),
 					int32(action.DynamicPrecedence), action.ProductionID,
 					isFragile, endOfNonTerminalExtra,

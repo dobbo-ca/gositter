@@ -98,6 +98,7 @@ func TestRegress(t *testing.T) {
 				t.Fatal(err)
 			}
 			withErrors, oneChild := 0, 0
+			var summaries gositter.SummaryCheck
 			for pass := 0; pass < 2; pass++ {
 				for i := range dumps {
 					if pass == 1 {
@@ -124,6 +125,7 @@ func TestRegress(t *testing.T) {
 							t.Errorf("%s: summarizeOneChild differs from summarizeChildren", dumps[i])
 						}
 						oneChild += n
+						addSummaries(t, dumps[i], p, &summaries)
 					}
 					var got bytes.Buffer
 					treedump.Dump(&got, treedump.Wrap(root), fields, src)
@@ -137,6 +139,61 @@ func TestRegress(t *testing.T) {
 				t.Error("a kept error scan differs from a fresh one")
 			}
 			t.Logf("%d cases, %d with errors, %d one-child nodes checked, %d error scans kept", len(dumps), withErrors, oneChild, scans)
+			t.Logf("%d summaries checked, %d of two heap children, %d that depend on the column, %d resumed",
+				summaries.Nodes, summaries.TwoHeap, summaries.Column, summaries.Resumed)
+		})
+	}
+}
+
+// Checks the summaries of the last tree of p and adds the counts to sum.
+func addSummaries(t *testing.T, name string, p *gositter.Parser, sum *gositter.SummaryCheck) {
+	c := p.SummariesOK()
+	if c.Bad != "" {
+		t.Errorf("%s: %s", name, c.Bad)
+	}
+	sum.Nodes += c.Nodes
+	sum.TwoHeap += c.TwoHeap
+	sum.Column += c.Column
+	sum.Resumed += c.Resumed
+}
+
+// Shapes the summary paths split on, by hand: wide repeat nodes, extras
+// between repeat children, ERROR nodes that grow by one recovery after
+// another, errors inside errors, tokens that depend on the column. No C dump
+// here: each summary is checked against the reference in export_test.go.
+var summaryCases = []struct {
+	name string
+	lang func() *gositter.Language
+	src  string
+}{
+	{"json wide", json.Language, "[" + strings.Repeat("1,", 6000) + "1]"},
+	{"json pairs", json.Language, "{" + strings.Repeat(`"a":[{"b":null}],`, 2000) + `"z":0}`},
+	{"json errors", json.Language, strings.Repeat("[1,,{]\"a\" 2}", 300)},
+	{"c define", c.Language, strings.Repeat("#define A( ", 400)},
+	{"c extras", c.Language, strings.Repeat("int a; /* c */ // d\n", 2000)},
+	{"c nested errors", c.Language, strings.Repeat("int f( { if (x { #define B(\n ) y = ; } ", 200)},
+	{"cpp define", cpp.Language, strings.Repeat("#define A( ", 400)},
+	{"bash expansion", bash.Language, strings.Repeat("${", 400)},
+	{"bash heredocs", bash.Language, strings.Repeat("cat <<-EOF\n\tx $y\n\tEOF\n", 300) + strings.Repeat("a=(1 2\n", 50)},
+	{"hcl", hcl.Language, strings.Repeat("a = 1 # c\nb \"x\" {\n  c = [1, 2]\n}\n", 1000)},
+	{"hcl errors", hcl.Language, strings.Repeat("a = { b = [ 1, \n", 300)},
+	{"scala indent", scala.Language, strings.Repeat("def f(x: Int) =\n  if x > 0 then\n    x\n  else\n    -x\n", 300)},
+	{"scala errors", scala.Language, strings.Repeat("object A:\n  def f =\n    val x = (\n  ]\n", 100)},
+}
+
+func TestSummaries(t *testing.T) {
+	for _, tc := range summaryCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := gositter.NewParser()
+			if err := p.SetLanguage(tc.lang()); err != nil {
+				t.Fatal(err)
+			}
+			var sum gositter.SummaryCheck
+			p.Parse([]byte(tc.src))
+			addSummaries(t, tc.name, p, &sum)
+			t.Logf("%d summaries checked, %d of two heap children, %d that depend on the column, %d resumed",
+				sum.Nodes, sum.TwoHeap, sum.Column, sum.Resumed)
 		})
 	}
 }

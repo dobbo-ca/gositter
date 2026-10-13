@@ -419,3 +419,363 @@ func TestChildrenAllocator(t *testing.T) {
 		t.Errorf("slab has %d entries and lists %x after freeing everything", len(sp.children), sp.freeLists)
 	}
 }
+
+// Random subtrees of every kind summarizeChildren tells apart.
+type randomTrees struct {
+	sp   *subtreePool
+	lang *Language
+	r    *rand.Rand
+	made []subtree
+}
+
+// testLanguage with two productions that alias a child, and kinds named.
+func newRandomTrees(sp *subtreePool, seed int64) *randomTrees {
+	lang := testLanguage()
+	lang.MaxAliasSequenceLength = 4
+	lang.AliasSequences = []Symbol{0, 0, 0, 0, tsIdent, 0, tsAnon, 0, 0, tsHidden, 0, 0}
+	lang.KindMask("a", "ident", "rule", "ERROR")
+	return &randomTrees{sp: sp, lang: lang, r: rand.New(rand.NewSource(seed))}
+}
+
+func (g *randomTrees) leaf() subtree {
+	sp, r := g.sp, g.r
+	sym := []Symbol{tsAnon, tsIdent, tsHidden}[r.Intn(3)]
+	padding := length{uint32(r.Intn(9)), Point{uint32(r.Intn(3) / 2), uint32(r.Intn(9))}}
+	n := uint32(r.Intn(20))
+	size := length{n, Point{0, n}}
+	state := StateID(r.Intn(50))
+	var s subtree
+	switch r.Intn(8) {
+	case 0: // heap, over several rows
+		size = length{300 + n, Point{uint32(r.Intn(3)), n}}
+		s = sp.newLeaf(sym, padding, size, uint32(r.Intn(40)), state, false, false, false, g.lang)
+	case 1: // external token; the scanner may have read the column
+		s = sp.newLeaf(sym, padding, size, uint32(r.Intn(4)), state, true, r.Intn(2) == 0, false, g.lang)
+		h := sp.ptr(s)
+		if r.Intn(2) == 0 {
+			h.flags |= fHasExternalScannerStateChange
+		}
+		// C reads repeat_depth from the scanner state of such a leaf.
+		h.repeatDepth = uint16(r.Intn(4))
+	case 2:
+		if r.Intn(2) == 0 {
+			padding.extent.Row = 20 // not inline
+		}
+		s = sp.newMissingLeaf(sym, padding, uint32(r.Intn(4)), g.lang)
+	case 3:
+		s = sp.newError('x', padding, size, uint32(r.Intn(4)), state, g.lang)
+	case 4:
+		s = sp.newLeaf(tsEnd, padding, length{}, 0, state, false, false, false, g.lang)
+	default:
+		s = sp.newLeaf(sym, padding, size, uint32(r.Intn(4)), state, false, false, false, g.lang)
+	}
+	if r.Intn(6) == 0 {
+		sp.setExtra(&s, true)
+	}
+	return s
+}
+
+// A child for a new node: a leaf, a new node or one made before.
+func (g *randomTrees) child(depth int) subtree {
+	switch k := g.r.Intn(10); {
+	case k < 2 && len(g.made) > 0:
+		s := g.made[g.r.Intn(len(g.made))]
+		g.sp.retain(s)
+		return s
+	case k < 5 && depth > 0:
+		return g.node(depth - 1)
+	}
+	return g.leaf()
+}
+
+func (g *randomTrees) node(depth int) subtree {
+	sp, r := g.sp, g.r
+	n := 1 + r.Intn(5)
+	if r.Intn(10) == 0 {
+		n = 20 + r.Intn(60)
+	}
+	sym := []Symbol{tsRule, tsRule, tsRepeat, tsRepeat, tsHidden, SymbolErrorRepeat, SymbolError}[r.Intn(7)]
+	arr := subtreeArray{}
+	for i := 0; i < n; i++ {
+		var c subtree
+		if i == 0 && sym == tsRepeat && r.Intn(2) == 0 {
+			// a repeat node below a repeat node: a repeat depth
+			c = g.node(0)
+			sp.ptr(c).symbol = tsRepeat
+			sp.ptr(c).flags &^= fVisible | fNamed
+			sp.summarizeChildrenRef(c, g.lang)
+		} else {
+			c = g.child(depth)
+		}
+		sp.arrayPush(&arr, c)
+	}
+	var s subtree
+	if sym == SymbolError {
+		s = sp.newErrorNode(&arr, r.Intn(2) == 0, g.lang)
+	} else {
+		productionID := uint32(0)
+		if n <= 4 && sym != SymbolErrorRepeat {
+			productionID = uint32(r.Intn(4) % 3)
+		}
+		s = sp.newNode(sym, &arr, productionID, g.lang)
+		// what ts_parser__reduce sets after ts_subtree_new_node
+		h := sp.ptr(s)
+		if r.Intn(4) == 0 {
+			h.flags |= fExtra
+		}
+		if r.Intn(3) == 0 {
+			h.flags |= fFragileLeft | fFragileRight
+			h.parseState = treeStateNone
+		} else {
+			h.parseState = StateID(r.Intn(50))
+		}
+		h.dynamicPrecedence += int32(r.Intn(3) - 1)
+	}
+	sp.retain(s) // made keeps one
+	g.made = append(g.made, s)
+	return s
+}
+
+func (g *randomTrees) check(t *testing.T, s subtree, c *SummaryCheck) {
+	t.Helper()
+	g.sp.checkSummary(s, g.lang, c)
+	if c.Bad != "" {
+		t.Fatalf("%s:\n%s", c.Bad, g.sp.string(s, 0, false, g.lang, true))
+	}
+}
+
+// summarize, summarizeTwoHeap and both loops of summarizeChildren against
+// summarizeChildrenRef, on random nodes.
+func TestSummarizeRandom(t *testing.T) {
+	var c SummaryCheck
+	for seed := int64(0); seed < 300; seed++ {
+		g := newRandomTrees(newTestPool(), seed)
+		for i := 0; i < 40; i++ {
+			g.check(t, g.node(3), &c)
+		}
+	}
+	if c.TwoHeap < 1000 || c.Column < 1000 || c.Resumed < 1000 {
+		t.Errorf("too few cases: %+v", c)
+	}
+}
+
+// An ERROR node that takes the children of the one before it and some more,
+// as in ts_parser__recover_to_state, must come out as one summarized from
+// its first child. A summary left behind must not reach any other node.
+func TestSummarizeResume(t *testing.T) {
+	var c SummaryCheck
+	for seed := int64(0); seed < 300; seed++ {
+		sp := newTestPool()
+		g := newRandomTrees(sp, seed)
+		arr := subtreeArray{}
+		sp.arrayPush(&arr, g.child(2))
+		errorTree := sp.newErrorNode(&arr, true, g.lang)
+		for round := 0; round < 30; round++ {
+			slice := subtreeArray{}
+			for i := g.r.Intn(4); i > 0; i-- {
+				sp.arrayPush(&slice, g.child(2))
+			}
+			resume := *sp.ptr(errorTree)
+			sp.arraySplice(&slice, 0, 0, sp.childrenOf(errorTree))
+			for j := uint32(0); j < resume.childCount; j++ {
+				sp.retain(sp.children[slice.off+j])
+			}
+			sp.release(errorTree)
+			switch g.r.Intn(8) {
+			case 0: // fewer children than the summary covers
+				if slice.size > 1 {
+					slice.size--
+					sp.release(sp.children[slice.off+slice.size])
+				}
+			case 1: // not an ERROR node
+				sp.resume = resume
+				other := sp.newNode(tsRule, &slice, 0, g.lang)
+				g.check(t, other, &c)
+				slice = subtreeArray{}
+				sp.arraySplice(&slice, 0, 0, sp.childrenOf(other))
+				for _, child := range sp.array(slice) {
+					sp.retain(child)
+				}
+				sp.release(other)
+				resume.childCount = 0
+			}
+			sp.resume = resume
+			errorTree = sp.newErrorNode(&slice, true, g.lang)
+			if sp.resume.childCount != 0 {
+				t.Fatal("summary to resume from left behind")
+			}
+			g.check(t, errorTree, &c)
+		}
+	}
+}
+
+// ts_subtree_compress as C has it, three summaries a turn, on
+// summarizeChildrenRef: the reference for compress.
+func (sp *subtreePool) compressRef(self subtree, count uint32, lang *Language, stack *[]subtree) {
+	initialStackSize := len(*stack)
+
+	tree := self
+	symbol := sp.ptr(tree).symbol
+	for i := uint32(0); i < count; i++ {
+		th := sp.ptr(tree)
+		if th.refCount > 1 || th.childCount < 2 {
+			break
+		}
+
+		child := sp.children[th.children]
+		if child.isInline() {
+			break
+		}
+		ch := sp.ptr(child)
+		if ch.childCount < 2 || ch.refCount > 1 || ch.symbol != symbol {
+			break
+		}
+
+		grandchild := sp.children[ch.children]
+		if grandchild.isInline() {
+			break
+		}
+		gh := sp.ptr(grandchild)
+		if gh.childCount < 2 || gh.refCount > 1 || gh.symbol != symbol {
+			break
+		}
+
+		sp.children[th.children] = grandchild
+		sp.children[ch.children] = sp.children[gh.children+gh.childCount-1]
+		sp.children[gh.children+gh.childCount-1] = child
+		*stack = append(*stack, tree)
+		tree = grandchild
+	}
+
+	for len(*stack) > initialStackSize {
+		tree = (*stack)[len(*stack)-1]
+		*stack = (*stack)[:len(*stack)-1]
+		child := sp.children[sp.ptr(tree).children]
+		ch := sp.ptr(child)
+		grandchild := sp.children[ch.children+ch.childCount-1]
+		sp.summarizeChildrenRef(grandchild, lang)
+		sp.summarizeChildrenRef(child, lang)
+		sp.summarizeChildrenRef(tree, lang)
+	}
+}
+
+// ts_parser__balance_subtree as C has it, on compressRef.
+func balanceRef(sp *subtreePool, root subtree, lang *Language) {
+	sp.treeStack = sp.treeStack[:0]
+	if sp.childCount(root) > 0 && sp.ptr(root).refCount == 1 {
+		sp.treeStack = append(sp.treeStack, root)
+	}
+	for len(sp.treeStack) > 0 {
+		tree := sp.treeStack[len(sp.treeStack)-1]
+		if h := sp.ptr(tree); h.repeatDepth > 0 {
+			child1 := sp.children[h.children]
+			child2 := sp.children[h.children+h.childCount-1]
+			repeatDelta := int64(sp.repeatDepth(child1)) - int64(sp.repeatDepth(child2))
+			if repeatDelta > 0 {
+				n := uint32(repeatDelta)
+				for i := n / 2; i > 0; i /= 2 {
+					sp.compressRef(tree, i, lang, &sp.treeStack)
+					n -= i
+				}
+			}
+		}
+		sp.treeStack = sp.treeStack[:len(sp.treeStack)-1]
+		for _, child := range sp.childrenOf(tree) {
+			if child.isInline() {
+				continue
+			}
+			if h := sp.ptr(child); h.childCount > 0 && h.refCount == 1 {
+				sp.treeStack = append(sp.treeStack, child)
+			}
+		}
+	}
+}
+
+// A left-leaning chain of repeat nodes, with extras between its children and
+// chains inside it.
+func (g *randomTrees) chain(depth int) subtree {
+	sp, r := g.sp, g.r
+	item := func() subtree {
+		if depth > 8 && r.Intn(8) == 0 {
+			return g.chain(r.Intn(depth / 2))
+		}
+		if r.Intn(4) == 0 {
+			arr := subtreeArray{}
+			sp.arrayPush(&arr, g.leaf())
+			sp.arrayPush(&arr, g.leaf())
+			return sp.newNode(tsRule, &arr, 0, g.lang)
+		}
+		return g.leaf()
+	}
+	arr := subtreeArray{}
+	sp.arrayPush(&arr, item())
+	sp.arrayPush(&arr, item())
+	rep := sp.newNode(tsRepeat, &arr, 0, g.lang)
+	for i := 0; i < depth; i++ {
+		arr = subtreeArray{}
+		sp.arrayPush(&arr, rep)
+		if r.Intn(3) == 0 {
+			extra := g.leaf()
+			sp.setExtra(&extra, true)
+			sp.arrayPush(&arr, extra)
+		}
+		sp.arrayPush(&arr, item())
+		rep = sp.newNode(tsRepeat, &arr, 0, g.lang)
+	}
+	return rep
+}
+
+// compress, which leaves out a summary C makes, against compressRef: the
+// same chains compressed by both must be the same in every field. Half of
+// them are balanced, as the parser does it. The other half get one call:
+// the passes of balancing summarize most nodes again and hide what a call
+// leaves behind.
+func TestCompressRandom(t *testing.T) {
+	column := 0
+	for seed := int64(0); seed < 2000; seed++ {
+		build := func() (p *Parser, top, root subtree, count uint32) {
+			p = &Parser{}
+			p.pool.reset()
+			g := newRandomTrees(&p.pool, seed)
+			depth := 5 + g.r.Intn(120)
+			top = g.chain(depth)
+			arr := subtreeArray{}
+			p.pool.arrayPush(&arr, top)
+			p.pool.arrayPush(&arr, g.leaf())
+			p.language = g.lang
+			return p, top, p.pool.newNode(tsRule, &arr, 0, g.lang), uint32(1 + g.r.Intn(depth))
+		}
+		p, top, root, count := build()
+		q, _, _, _ := build()
+		a, b := &p.pool, &q.pool
+		if seed%2 == 0 {
+			p.finishedTree = root
+			p.balanceSubtree()
+			balanceRef(b, root, q.language)
+		} else {
+			a.compress(top, count, p.language, &a.treeStack)
+			b.compressRef(top, count, q.language, &b.treeStack)
+		}
+
+		if a.heapLen != b.heapLen || len(a.children) != len(b.children) {
+			t.Fatalf("seed %d: slabs differ in length", seed)
+		}
+		for i := uint32(1); i < a.heapLen; i++ {
+			s := subtree(i) << 1
+			if *a.ptr(s) != *b.ptr(s) {
+				t.Fatalf("seed %d: node %d\n have %+v\n want %+v", seed, i, *a.ptr(s), *b.ptr(s))
+			}
+			if a.ptr(s).flags&fDependsOnColumn != 0 && a.ptr(s).repeatDepth > 0 {
+				column++
+			}
+		}
+		for i := range a.children {
+			if a.children[i] != b.children[i] {
+				t.Fatalf("seed %d: children slabs differ at %d", seed, i)
+			}
+		}
+	}
+	if column < 1000 {
+		t.Errorf("%d repeat nodes that depend on the column: too few", column)
+	}
+}
