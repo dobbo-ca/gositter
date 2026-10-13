@@ -13,8 +13,8 @@ import (
 // Not ported, because old_tree is always NULL: ts_parser__reuse_node,
 // ts_parser__breakdown_lookahead (a lookahead is always a leaf here), the
 // ReusableNode, included range differences. Also not ported: wasm,
-// cancellation, timeouts and the progress callback (ts_parser__check_progress
-// would always return true), LOG_STACK and LOG_TREE (dot graphs).
+// cancellation, timeouts and the progress callback (ParseBudget stops a
+// parse that makes no progress instead), LOG_STACK and LOG_TREE (dot graphs).
 
 const (
 	maxVersionCount         = 6                            // MAX_VERSION_COUNT
@@ -1715,9 +1715,17 @@ func (p *Parser) Reset() {
 // ts_parser_parse with old_tree NULL and UTF-8 input. Returns nil if no
 // language is set. The tree is valid until the next Parse, Reset or
 // SetLanguage on p.
-func (p *Parser) Parse(src []byte) *Tree {
+func (p *Parser) Parse(src []byte) *Tree { return p.ParseBudget(src, 0) }
+
+// ParseBudget is Parse, but returns nil once advance has been called more
+// than maxStall times in a row without passing the furthest byte reached.
+// 0 is no limit. The count depends only on the language and src.
+func (p *Parser) ParseBudget(src []byte, maxStall uint32) *Tree {
 	if p.language == nil {
 		return nil
+	}
+	if maxStall == 0 {
+		maxStall = math.MaxUint32
 	}
 
 	// C resets at the end of a parse. The tree borrows the slabs, so the
@@ -1731,7 +1739,7 @@ func (p *Parser) Parse(src []byte) *Tree {
 		p.log(p.lb().s("new_parse"))
 	}
 
-	var position, lastPosition, versionCount uint32
+	var position, lastPosition, versionCount, stalled uint32
 	for {
 		p.pool.reserveHeap()
 		for version := uint32(0); ; version++ {
@@ -1752,8 +1760,16 @@ func (p *Parser) Parse(src []byte) *Tree {
 				p.advance(version)
 
 				position = p.stack.position(version).bytes
-				if position > lastPosition || (version > 0 && position == lastPosition) {
-					lastPosition = position
+				if position > lastPosition {
+					lastPosition, stalled = position, 0
+					break
+				}
+				if stalled++; stalled > maxStall {
+					p.Reset()
+					p.lexer.src = nil
+					return nil
+				}
+				if version > 0 && position == lastPosition {
 					break
 				}
 			}

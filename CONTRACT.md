@@ -383,6 +383,7 @@ moves each stub into the file named after its C file and deletes it from
 func NewParser() *Parser
 func (p *Parser) SetLanguage(l *Language) error
 func (p *Parser) Parse(src []byte) *Tree
+func (p *Parser) ParseBudget(src []byte, maxStall uint32) *Tree
 func (p *Parser) Reset()
 func (p *Parser) SetLogger(fn Logger) // type Logger func(t LogType, msg string)
 
@@ -459,6 +460,12 @@ Semantics:
   `parseRoot` already closes the tree before it lets go of the parser, so
   this costs it nothing. `Parse` may return a `*Tree` owned by the parser.
 - `Parse` returns nil only when no language is set.
+- `ParseBudget` is `Parse` with a limit, and has no C counterpart. It also
+  returns nil once `ts_parser__advance` ran more than `maxStall` times in a
+  row without passing the furthest byte any version has reached. 0 is no
+  limit, and then the tree is the one `Parse` builds. The count depends only
+  on the language and the input, so the same limit stops the same inputs on
+  every run. A stopped parser is reset and ready for the next parse.
 - A `Parser` is for one goroutine. Different parsers run in parallel.
 
 ## 10. Logging
