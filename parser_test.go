@@ -353,6 +353,10 @@ func TestParseBudgetStops(t *testing.T) {
 	a, b := gositter.NewParser(), gositter.NewParser()
 	b.SetLanguage(golang.Language())
 	want := b.Parse(src).RootNode().String()
+	// progress resets the count
+	if b.ParseBudget(src, 1) == nil {
+		t.Fatal("clean input stopped at limit 1")
+	}
 	b.Reset()
 
 	a.SetLanguage(julia.Language())
