@@ -10,6 +10,7 @@ import (
 	"github.com/dobbo-ca/gositter/grammars/csharp"
 	"github.com/dobbo-ca/gositter/grammars/golang"
 	"github.com/dobbo-ca/gositter/grammars/json"
+	"github.com/dobbo-ca/gositter/grammars/julia"
 	"github.com/dobbo-ca/gositter/grammars/kotlin"
 	"github.com/dobbo-ca/gositter/grammars/ruby"
 	"github.com/dobbo-ca/gositter/grammars/rust"
@@ -319,5 +320,109 @@ func TestChildrenSlabDropped(t *testing.T) {
 	wantLarge := q.Parse(large).RootNode().String()
 	if got := p.Parse(large).RootNode().String(); got != wantLarge {
 		t.Error("large tree differs on the regrown slab")
+	}
+}
+
+// stallOf finds the smallest limit that lets src parse, by bisection.
+func stallOf(t *testing.T, lang *gositter.Language, src []byte) uint32 {
+	p := gositter.NewParser()
+	p.SetLanguage(lang)
+	lo, hi := uint32(1), uint32(1<<20)
+	if p.ParseBudget(src, hi) == nil {
+		t.Fatalf("stops at %d", hi)
+	}
+	for lo < hi {
+		if mid := (lo + hi) / 2; p.ParseBudget(src, mid) != nil {
+			hi = mid
+		} else {
+			lo = mid + 1
+		}
+	}
+	if lo < 3 {
+		t.Fatalf("input too simple: stall %d", lo)
+	}
+	return lo
+}
+
+// An unclosed julia macro block retries the same byte without end: 14 s and
+// 1.4 GB with no limit. The stop must leave nothing behind, in this parser
+// or in the heap chunks it hands to the others.
+func TestParseBudgetStops(t *testing.T) {
+	stuck := []byte("@testset \"t0\" begin\n    @testset \"t1\" begin\n        l2")
+	src := []byte(strings.Repeat("func f() { g(1, 2, 3) }\n", 5000))
+	a, b := gositter.NewParser(), gositter.NewParser()
+	b.SetLanguage(golang.Language())
+	want := b.Parse(src).RootNode().String()
+	// progress resets the count
+	if b.ParseBudget(src, 1) == nil {
+		t.Fatal("clean input stopped at limit 1")
+	}
+	b.Reset()
+
+	a.SetLanguage(julia.Language())
+	if a.ParseBudget(stuck, 65536) != nil {
+		t.Fatal("parsed, want a stop")
+	}
+	if n := a.HeapChunks(); n != gositter.KeptHeapChunks {
+		t.Errorf("after the stop: %d chunks, want %d", n, gositter.KeptHeapChunks)
+	}
+	if got := b.Parse(src).RootNode().String(); got != want {
+		t.Error("tree differs on another parser after the stop")
+	}
+	a.SetLanguage(golang.Language())
+	if got := a.Parse(src).RootNode().String(); got != want {
+		t.Error("tree differs on the stopped parser")
+	}
+}
+
+// The limit is exact, and at the limit the tree is the one Parse builds.
+func TestParseBudgetBoundary(t *testing.T) {
+	src := []byte(strings.Repeat("func f() { g(1, 2, 3 }\n", 100))
+	m := stallOf(t, golang.Language(), src)
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	want := p.Parse(src).RootNode().String()
+	if p.ParseBudget(src, m-1) != nil {
+		t.Errorf("limit %d: parsed, want a stop", m-1)
+	}
+	if tree := p.ParseBudget(src, m); tree == nil {
+		t.Errorf("limit %d: stopped", m)
+	} else if tree.RootNode().String() != want {
+		t.Errorf("limit %d: tree differs from Parse", m)
+	}
+}
+
+// The count depends on the language and the input only, not on what the
+// parser did before.
+func TestParseBudgetCountStable(t *testing.T) {
+	cases := []struct {
+		name string
+		lang *gositter.Language
+		src  string
+	}{
+		// 17924: the count grows with the input, 8.5 per byte from here.
+		{"kotlin_lt", kotlin.Language(), strings.Repeat("<", 2500)},
+		{"rust_match_arm", rust.Language(), strings.Repeat("x => {\n", 3000)},
+	}
+	for _, c := range cases {
+		src := []byte(c.src)
+		large := []byte(strings.Repeat(c.src, 2))
+		m := stallOf(t, c.lang, src)
+		t.Logf("%s: stall %d", c.name, m)
+		before := map[string]func(p *gositter.Parser){
+			"fresh":   func(p *gositter.Parser) {},
+			"reused":  func(p *gositter.Parser) { p.Parse(large) },
+			"stopped": func(p *gositter.Parser) { p.ParseBudget(large, 1) },
+		}
+		for name, prep := range before {
+			for _, limit := range []uint32{m - 1, m} {
+				p := gositter.NewParser()
+				p.SetLanguage(c.lang)
+				prep(p)
+				if got := p.ParseBudget(src, limit) != nil; got != (limit == m) {
+					t.Errorf("%s, %s parser, limit %d of %d: parsed=%v", c.name, name, limit, m, got)
+				}
+			}
+		}
 	}
 }
