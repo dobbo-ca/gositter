@@ -88,6 +88,39 @@ with a per-thread free-list allocator. The best variant for C moved the parse
 ratio by 0.08 at most (0.52 to 0.57 for c, with the allocator). No variant
 changed a verdict.
 
+## Closing the gaps
+
+Each slow case was profiled and a fix was prototyped in a scratch copy, then
+rerun by a second agent that tried to refute it. None of this is in the
+library yet. Every prototype kept node counts and checksums equal to C on
+real, realerr and broken lists; none was run through the full `oracle cmp`.
+Numbers are ratios to pure C, before and after.
+
+| case | cause | prototype | before | after |
+|---|---|---|---|---|
+| TreeCursor walk alone | `Node` has 6 fields, so Go keeps it in memory and each copy stalls on store forwarding; the cursor is a line-by-line port of an iterator C inlines | pack `Node` into 4 fields, rewrite cursor movement as one loop | 2.6 cycles | 0.68 to 0.77 cycles; parse + cursor 0.81 to 0.55 |
+| Child(i) walk alone | same `Node` copies | the 4-field `Node` | 2.3 cycles | 1.2 to 1.5 cycles; parse + walk stays below C |
+| Child(i) on broken files | one or two UTF-16 mutants per list parse to one ERROR node with 10,000 to 38,000 children; Child(i) is quadratic there on both sides and gositter's step runs 1.5 times the instructions | leaner scan step in `Node.child` | tsx 1.18, rust 1.08 cycles | 0.97, 1.00 |
+| hcl instructions | 0.56 tokens per byte, so tree balancing decides the ratio; `summarizeChildren` runs 695 instructions per call against 275 in C | in-place reduce before a trailing SHIFT_REPEAT, a straight-line summarize for two heap children, drop a redundant summarize in `compress` | 1.11 instructions, 0.81 cycles | 0.76 instructions, 0.51 cycles |
+| extreme inputs | `summarizeChildren` again, plus a recovery loop that summarizes all children of the ERROR node on every recovery (C has the same quadratic) | split summarize loop, resume the ERROR summary from the node it replaces | 1.14 to 1.33 cycles (c, cpp, bash) | 0.18 to 0.22; all 15 slower inputs but one end below C with a warm parser |
+| peak RSS, one thread | Go garbage and GC headroom, not the tree: the children slab is dropped and regrown, 18 KB of garbage per parse; nodes are already the size of C's | slabs outside the Go heap with mmap, external scanner reused across parses | 2.0 to 2.8 | 1.12 to 1.35 (bash real 1.70) |
+| new process | Go runtime start: an empty Go main costs 1.9 M cycles against 0.5 M for an empty C main, 95% of the gap | none in the library; GOMAXPROCS=1 for one-shot tools | 2.16 | 1.68 |
+
+Notes from the second pass:
+
+- A checkpoint index for Child(i) on wide nodes took the broken-file walk to
+  0.14 to 0.20 of C, but it was 1.8 times slower and larger than today on a
+  tree with 12,000 wide nodes. Not recommended as written.
+- The Go-heap-only version of the memory fix (never drop slabs) gets the same
+  one-thread numbers but is 9% worse at 16 threads and brings back the
+  behaviour that 7b4d2a8 removed.
+- What stays after the memory fix is the Go runtime (3 to 4 MB) and the lookup
+  table built at first use (1 to 3.5 MB per language).
+- Callers that need a full walk today should use `Node.Preorder`: 0.89 to 0.93
+  of the cycles of C's cursor walk with no change to the library.
+- Cycle counts moved by up to 3% between byte-identical binaries in these
+  runs, so the small gains are stated in instructions.
+
 ## Method
 
 Three sides, one process each, same work:
