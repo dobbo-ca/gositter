@@ -133,6 +133,9 @@ type ExternalScanner interface {
 	// deserialize. len(buf) == 0 means reset to the initial state. buf is
 	// only valid during the call.
 	Deserialize(buf []byte)
+	// Optional method Reset(): back to the state New returns, as seen by
+	// Scan, Serialize and Deserialize. The parser then reuses the scanner
+	// for its next parse in the same language instead of calling New.
 }
 
 // TSLanguage.external_scanner. destroy has no Go counterpart.

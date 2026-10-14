@@ -1,6 +1,9 @@
 package gositter
 
-import "slices"
+import (
+	"slices"
+	"weak"
+)
 
 // DenseMismatch compares the row-displacement small-table lookup with the C scan for
 // every small state and every symbol value a lookup can carry. It returns
@@ -37,12 +40,23 @@ func (l *Language) SmallTableBytes() int {
 // ChildrenSlabCap is the capacity of the children slab, in entries.
 func (p *Parser) ChildrenSlabCap() int { return cap(p.pool.children) }
 
+// SlabsFreed reports, after the call it returns, whether the GC has freed
+// the children, stack node and stack link slabs the parser holds now.
+func (p *Parser) SlabsFreed() func() bool {
+	c, n, l := weak.Make(p.pool.slab), weak.Make(p.stack.nodesBox), weak.Make(p.stack.linksBox)
+	return func() bool { return c.Value() == nil && n.Value() == nil && l.Value() == nil }
+}
+
+// StackSlabCap is the capacity of the stack node slab, in entries.
+func (p *Parser) StackSlabCap() int { return cap(p.stack.nodes) }
+
 // HeapChunks is the number of heap chunks the parser holds.
 func (p *Parser) HeapChunks() int { return len(p.pool.heap) }
 
 const (
 	KeptHeapChunks = keptHeapChunks
 	ShrinkChildren = shrinkChildren
+	ShrinkNodes    = shrinkNodes
 )
 
 // RepeatFlagsOK reports whether fHasRepeat covers every node with a repeat
@@ -569,3 +583,6 @@ func (p *Parser) SummariesOK() SummaryCheck {
 	}
 	return c
 }
+
+// KeptScanner is the scanner the parser keeps for reuse.
+func (p *Parser) KeptScanner() ExternalScanner { return p.keptScanner }

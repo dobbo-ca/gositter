@@ -374,7 +374,7 @@ func TestChildrenAllocator(t *testing.T) {
 			b := block{tag: subtree(step) << 32}
 			if r.Intn(3) == 0 {
 				// As reduceInPlace does.
-				b.a = subtreeArray{off: sp.bumpChildren(n), size: n, cap: n}
+				b.a = subtreeArray{off: sp.bumpChildren(sp.room(n), n), size: n, cap: n}
 				fill(b, 0)
 				sp.settleChildren(&b.a)
 			} else {

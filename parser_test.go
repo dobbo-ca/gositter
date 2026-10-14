@@ -1,7 +1,10 @@
 package gositter_test
 
 import (
+	"runtime"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/dobbo-ca/gositter"
@@ -321,6 +324,14 @@ func TestChildrenSlabDropped(t *testing.T) {
 	if got := p.Parse(large).RootNode().String(); got != wantLarge {
 		t.Error("large tree differs on the regrown slab")
 	}
+	// The dropped slab comes back from the free lists until a GC frees it.
+	// The race detector allocates in the heap chunk pool.
+	defer debug.SetGCPercent(debug.SetGCPercent(-1))
+	cycle := func() { p.Parse(small); p.Parse(small); p.Parse(large) }
+	cycle()
+	if n := testing.AllocsPerRun(3, cycle); !raceEnabled && n != 0 {
+		t.Errorf("drop and regrow: %v allocs, want 0", n)
+	}
 }
 
 // stallOf finds the smallest limit that lets src parse, by bisection.
@@ -425,4 +436,134 @@ func TestParseBudgetCountStable(t *testing.T) {
 			}
 		}
 	}
+}
+
+// A deep stack's slabs go to the free lists at reset, as children slabs, and
+// a warm parser takes them back without allocating.
+func TestStackSlabsDropped(t *testing.T) {
+	deep := []byte("func f() {" + strings.Repeat("g(", 10000))
+	small := []byte("func f() { g(1, 2, 3) }\n")
+	q := gositter.NewParser()
+	q.SetLanguage(golang.Language())
+	want := q.Parse(deep).RootNode().String()
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	p.Parse(deep)
+	if n := p.StackSlabCap(); n <= gositter.ShrinkNodes {
+		t.Fatalf("input too shallow: stack slab of %d entries", n)
+	}
+	p.Parse(small)
+	p.Reset()
+	if n := p.StackSlabCap(); n > gositter.ShrinkNodes {
+		t.Errorf("after the small parse: stack slab of %d entries, want it dropped", n)
+	}
+	if p.Parse(deep).RootNode().String() != want {
+		t.Error("deep tree differs on the pooled slabs")
+	}
+	defer debug.SetGCPercent(debug.SetGCPercent(-1))
+	cycle := func() { p.Parse(small); p.Parse(small); p.Parse(deep) }
+	cycle()
+	if n := testing.AllocsPerRun(3, cycle); !raceEnabled && n != 0 {
+		t.Errorf("drop and regrow: %v allocs, want 0", n)
+	}
+}
+
+// After a huge input, a few small parses and two GCs free its slabs: no
+// parser and no free list holds them.
+func TestHugeSlabsFreed(t *testing.T) {
+	deep := []byte("func f() {" + strings.Repeat("g(", 10000) + strings.Repeat("func f() { g(1, 2, 3) }\n", 20000))
+	small := []byte("func f() { g(1, 2, 3) }\n")
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	p.Parse(deep)
+	if p.ChildrenSlabCap() <= gositter.ShrinkChildren || p.StackSlabCap() <= gositter.ShrinkNodes {
+		t.Fatalf("input too small: slabs of %d and %d entries", p.ChildrenSlabCap(), p.StackSlabCap())
+	}
+	freed := p.SlabsFreed()
+	p.Parse(small)
+	p.Parse(small)
+	runtime.GC()
+	runtime.GC()
+	if !freed() {
+		t.Error("the huge input's slabs outlived two GCs")
+	}
+	runtime.KeepAlive(p)
+}
+
+// A small parse that adds no stack link must still give up a huge link slab.
+func TestHugeLinkSlabFreedByLinklessParses(t *testing.T) {
+	deep := []byte("func f() {" + strings.Repeat("g(", 10000) + strings.Repeat("func f() { g(1, 2, 3) }\n", 20000))
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	p.Parse(deep)
+	freed := p.SlabsFreed()
+	for i := 0; i < 5; i++ {
+		p.Parse([]byte("package p\n\nvar x = 1\n"))
+	}
+	p.Reset()
+	runtime.GC()
+	runtime.GC()
+	if !freed() {
+		t.Error("the huge input's slabs outlived two GCs")
+	}
+	runtime.KeepAlive(p)
+}
+
+// After a huge input gives up its slabs, a small parse takes slabs of
+// at most 4 times its need.
+func TestSmallParseTakesSmallSlabs(t *testing.T) {
+	huge := []byte("func f() {" + strings.Repeat("g(", 10000) + strings.Repeat("func f() { g(1, 2, 3) }\n", 20000))
+	small := []byte("func f() { g(1, 2, 3) }\n")
+	defer debug.SetGCPercent(debug.SetGCPercent(-1))
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	p.Parse(huge)
+	if p.ChildrenSlabCap() <= gositter.ShrinkChildren || p.StackSlabCap() <= gositter.ShrinkNodes {
+		t.Fatalf("input too small: slabs of %d and %d entries", p.ChildrenSlabCap(), p.StackSlabCap())
+	}
+	p.Parse(small)
+	p.Reset() // the huge slabs are given up here
+	p.Parse(small)
+	if n := p.ChildrenSlabCap(); n > 4*4096 {
+		t.Errorf("children slab of %d entries for a small parse", n)
+	}
+	if n := p.StackSlabCap(); n > 4*64 {
+		t.Errorf("stack slab of %d entries for a small parse", n)
+	}
+}
+
+// Parsers on 8 goroutines pass slabs through the shared free lists. Each
+// tree must be the one a lone parser builds.
+func TestSlabsAcrossParsers(t *testing.T) {
+	inputs := [][]byte{
+		[]byte("func f() {" + strings.Repeat("g(", 3000)),
+		[]byte(strings.Repeat("func f() { g(1, 2, 3) }\n", 8000)),
+		[]byte("func f() { g(1, 2, 3) }\n"),
+		[]byte("package p\nvar x = [...]int{1, 2, 3}\n"),
+		[]byte("func f() {" + strings.Repeat("g(", 9000) + strings.Repeat("func f() { g(1, 2, 3) }\n", 3000)),
+	}
+	lone := gositter.NewParser()
+	lone.SetLanguage(golang.Language())
+	want := make([]string, len(inputs))
+	for i, in := range inputs {
+		want[i] = lone.Parse(in).RootNode().String()
+	}
+	var wg sync.WaitGroup
+	for g := 0; g < 8; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p := gositter.NewParser()
+			p.SetLanguage(golang.Language())
+			for i := 0; i < 3*len(inputs); i++ {
+				k := (i + g) % len(inputs)
+				if got := p.Parse(inputs[k]).RootNode().String(); got != want[k] {
+					t.Errorf("goroutine %d: input %d differs", g, k)
+					return
+				}
+				runtime.Gosched()
+			}
+		}()
+	}
+	wg.Wait()
 }

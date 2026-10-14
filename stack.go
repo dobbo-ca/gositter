@@ -3,7 +3,10 @@ package gositter
 // stack.c: the graph-structured stack. Nodes live in a slab and are
 // addressed by index; 0 is the NULL node.
 
-import "math"
+import (
+	"math"
+	"weak"
+)
 
 const (
 	maxLinkCount     = 8  // MAX_LINK_COUNT
@@ -108,10 +111,19 @@ type stack struct {
 	// Links 1 to 7 of the nodes that have them: moreLinks[more[node]], where
 	// 0 means none yet. A node index keeps its entry until reset.
 	more      []uint32
-	moreLinks [][maxLinkCount - 1]stackLink // [0] unused
-	nodePool  []uint32                      // node_pool
+	moreLinks []moreLinkSet // [0] unused
+	nodePool  []uint32      // node_pool
 	baseNode  uint32
-	sp        *subtreePool
+
+	// The boxes of nodes and moreLinks for the free lists, and the slabs
+	// this parse outgrew. A pointer taken before a growth may still read
+	// those, so they go to the free lists at reset. Weak: a GC in the parse
+	// frees them, as garbage.
+	nodesBox *[]stackNode
+	linksBox *[]moreLinkSet
+	nodesOut []weak.Pointer[[]stackNode]
+	linksOut []weak.Pointer[[]moreLinkSet]
+	sp       *subtreePool
 
 	// Callback payloads.
 	goalSubtreeCount uint32                // pop_count_callback
@@ -136,7 +148,10 @@ func (s *stack) moreLink(self uint32, i int) *stackLink {
 	}
 	if s.more[self] == 0 {
 		s.more[self] = uint32(len(s.moreLinks))
-		s.moreLinks = append(s.moreLinks, [maxLinkCount - 1]stackLink{})
+		if len(s.moreLinks) == cap(s.moreLinks) {
+			s.growLinks()
+		}
+		s.moreLinks = append(s.moreLinks, moreLinkSet{})
 	}
 	return &s.moreLinks[s.more[self]][i-1]
 }
@@ -191,7 +206,23 @@ func (s *stack) growNodes() {
 	if n > math.MaxUint32/2 {
 		panic(errSlabFull)
 	}
-	s.nodes = append(make([]stackNode, 0, 2*n), s.nodes...)
+	if s.nodesBox == nil {
+		s.nodesBox = new([]stackNode)
+	}
+	*s.nodesBox = s.nodes
+	s.nodesOut = append(s.nodesOut, weak.Make(s.nodesBox))
+	s.nodesBox = nodeSlabs.get(2 * n)
+	s.nodes = append(*s.nodesBox, s.nodes...)
+}
+
+func (s *stack) growLinks() {
+	if s.linksBox == nil {
+		s.linksBox = new([]moreLinkSet)
+	}
+	*s.linksBox = s.moreLinks
+	s.linksOut = append(s.linksOut, weak.Make(s.linksBox))
+	s.linksBox = linkSlabs.get(max(2*len(s.moreLinks), 16))
+	s.moreLinks = append(*s.linksBox, s.moreLinks...)
 }
 
 // stack__subtree_node_count
@@ -650,12 +681,40 @@ func (s *stack) reset() {
 	s.heads = s.heads[:0]
 	s.slices = s.slices[:0]
 	s.iterators = s.iterators[:0]
+	for _, w := range s.nodesOut {
+		nodeSlabs.put(w.Value())
+	}
+	for _, w := range s.linksOut {
+		linkSlabs.put(w.Value())
+	}
+	s.nodesOut, s.linksOut = s.nodesOut[:0], s.linksOut[:0]
+	// len 2: nothing was parsed since the last reset
+	n := len(s.nodes)
+	parsed := n > 2
+	if parsed && shrinkSlab(cap(s.nodes), n, shrinkNodes) {
+		*s.nodesBox = s.nodes
+		nodeSlabs.put(s.nodesBox)
+		s.nodesBox = nodeSlabs.get(64)
+		s.nodes = *s.nodesBox
+		if shrinkSlab(cap(s.nodePool), n, shrinkIndexes) {
+			s.nodePool = nil
+		}
+		if shrinkSlab(cap(s.more), len(s.more), shrinkIndexes) {
+			s.more = nil
+		}
+	}
+	if parsed && shrinkSlab(cap(s.moreLinks), len(s.moreLinks), shrinkLinks) {
+		*s.linksBox = s.moreLinks
+		linkSlabs.put(s.linksBox)
+		s.linksBox = linkSlabs.get(16)
+		s.moreLinks = *s.linksBox
+	}
 	if cap(s.nodes) == 0 {
 		s.nodes = make([]stackNode, 1, 64)
 	}
 	s.nodes = s.nodes[:1]
 	s.more = s.more[:0]
-	s.moreLinks = append(s.moreLinks[:0], [maxLinkCount - 1]stackLink{})
+	s.moreLinks = append(s.moreLinks[:0], moreLinkSet{})
 	s.nodePool = s.nodePool[:0]
 	s.baseNode = s.nodeNew(0, nullSubtree, false, 1)
 	s.clear()
@@ -760,7 +819,7 @@ func (s *stack) popLinear(version uint32, count uint32) (subtrees subtreeArray, 
 		} else if counted == 0 {
 			trailing++
 		}
-		sp.children[sp.bumpChildren(1)] = link.subtree
+		sp.children[sp.bumpChildren(sp.room(1), 1)] = link.subtree
 		s.nodePool = append(s.nodePool, below)
 		below = link.node
 	}

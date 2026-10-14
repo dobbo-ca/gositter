@@ -81,6 +81,11 @@ type Parser struct {
 	scannerBuf [SerializationBufferSize]byte
 
 	tree Tree // the result of the last Parse; borrows the slabs above
+
+	// The scanner of the last parse, if it has Reset. It never goes to
+	// another language.
+	keptScanner  ExternalScanner
+	keptLanguage *Language
 }
 
 // ErrorStatus
@@ -295,7 +300,15 @@ func (p *Parser) betterVersionExists(version uint32, isInError bool, cost uint32
 func (p *Parser) externalScannerCreate() {
 	if p.language != nil && p.language.ExternalScanner.States != nil {
 		if p.language.ExternalScanner.New != nil {
+			if r, ok := p.keptScanner.(interface{ Reset() }); ok && p.keptLanguage == p.language {
+				r.Reset()
+				p.externalScanner = p.keptScanner
+				return
+			}
 			p.externalScanner = p.language.ExternalScanner.New()
+			if _, ok := p.externalScanner.(interface{ Reset() }); ok {
+				p.keptScanner, p.keptLanguage = p.externalScanner, p.language
+			}
 		}
 	}
 }
@@ -661,7 +674,7 @@ func (p *Parser) selectChildren(left subtree, children subtreeArray) bool {
 	sp := &p.pool
 	mark := len(sp.children)
 	scratch := subtreeArray{size: children.size, cap: children.size}
-	scratch.off = sp.bumpChildren(children.size)
+	scratch.off = sp.bumpChildren(sp.room(children.size), children.size)
 	copy(sp.array(scratch), sp.array(children))
 
 	scratchTree := sp.newNode(sp.symbol(left), &scratch, 0, p.language)
@@ -1695,6 +1708,8 @@ func NewParser() *Parser {
 func (p *Parser) SetLanguage(l *Language) error {
 	p.Reset()
 	p.language = nil
+	// Never keep another language's scanner and its buffers.
+	p.keptScanner, p.keptLanguage = nil, nil
 
 	if l != nil {
 		if l.ABIVersion > LanguageVersion || l.ABIVersion < MinCompatibleLanguageVersion {
@@ -1820,7 +1835,7 @@ func (p *Parser) ParseBudget(src []byte, maxStall uint32) *Tree {
 
 	// ts_tree_new. The root gets a slot in the children slab so that a Node
 	// can address it like any other subtree.
-	root := p.pool.bumpChildren(1)
+	root := p.pool.bumpChildren(p.pool.room(1), 1)
 	p.pool.children[root] = p.finishedTree
 	p.tree = Tree{pool: &p.pool, language: p.language, root: root}
 	p.finishedTree = nullSubtree

@@ -148,3 +148,6 @@ func (s *scanner) Deserialize(buf []byte) {
 		s.delimiter[i/sizeofWchar] = int32(uint32(buf[i]) | uint32(buf[i+1])<<8 | uint32(buf[i+2])<<16 | uint32(buf[i+3])<<24)
 	}
 }
+
+// Reset: the state newScanner returns.
+func (s *scanner) Reset() { *s = scanner{} }
