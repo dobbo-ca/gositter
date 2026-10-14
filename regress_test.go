@@ -116,6 +116,7 @@ func TestRegress(t *testing.T) {
 					if pass == 0 {
 						checkChildren(t, dumps[i], root)
 						checkPreorder(t, dumps[i], root)
+						checkCursor(t, dumps[i], root)
 						checkPreorderMask(t, dumps[i], root, regressKinds[name])
 						if !p.RepeatFlagsOK() {
 							t.Errorf("%s: fHasRepeat misses a repeat node", dumps[i])
@@ -340,4 +341,73 @@ func checkPreorderMask(t *testing.T, name string, root gositter.Node, kinds map[
 	}
 	walk(all)
 	walk(all & 0x00ff00ff)
+}
+
+// A cursor must visit what Preorder visits, in that order, from the root and
+// from inner nodes (one cursor, reused through Reset), report the node's parent on
+// GotoParent, and name each field as the parent's FieldNameForChild does.
+func checkCursor(t *testing.T, name string, root gositter.Node) {
+	c := root.Walk()
+	var all []gositter.Node
+	root.Preorder(func(n gositter.Node) bool { all = append(all, n); return true })
+	starts := []gositter.Node{root}
+	for i := len(all) / 7; i < len(all) && len(starts) < 9; i += len(all)/7 + 1 {
+		starts = append(starts, all[i])
+	}
+	for _, n := range all {
+		if n.IsExtra() {
+			starts = append(starts, n)
+			break
+		}
+	}
+	for _, start := range starts {
+		var want []gositter.Node
+		start.Preorder(func(n gositter.Node) bool { want = append(want, n); return true })
+		c.Reset(start)
+		var got []gositter.Node
+		parents, index := []gositter.Node{}, []uint32{}
+		visit := func() {
+			n := c.Node()
+			got = append(got, n)
+			if d := len(index); d > 0 && (index[d-1] < 256 || index[d-1]%37 == 0) {
+				if f, g := parents[d-1].FieldNameForChild(index[d-1]), c.FieldName(); f != g {
+					t.Errorf("%s: %s at %d: FieldName %q, FieldNameForChild %q", name, n.Kind(), n.StartByte(), g, f)
+				}
+			}
+		}
+		visit()
+		for done := false; !done; {
+			if c.GotoFirstChild() {
+				parents, index = append(parents, got[len(got)-1]), append(index, 0)
+				visit()
+				continue
+			}
+			for {
+				if len(index) == 0 {
+					done = true
+					break
+				}
+				if c.GotoNextSibling() {
+					index[len(index)-1]++
+					visit()
+					break
+				}
+				if !c.GotoParent() || c.Node() != parents[len(parents)-1] {
+					t.Errorf("%s: GotoParent from %d does not reach the parent", name, start.StartByte())
+					return
+				}
+				parents, index = parents[:len(parents)-1], index[:len(index)-1]
+			}
+		}
+		if len(got) != len(want) {
+			t.Errorf("%s: cursor from %s at %d visits %d nodes, Preorder %d", name, start.Kind(), start.StartByte(), len(got), len(want))
+			return
+		}
+		for i := range got {
+			if got[i] != want[i] {
+				t.Errorf("%s: cursor from %s at %d differs from Preorder at node %d", name, start.Kind(), start.StartByte(), i)
+				return
+			}
+		}
+	}
 }
