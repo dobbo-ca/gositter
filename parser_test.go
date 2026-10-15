@@ -480,12 +480,43 @@ func TestHugeSlabsFreed(t *testing.T) {
 		t.Fatalf("input too small: slabs of %d and %d entries", p.ChildrenSlabCap(), p.StackSlabCap())
 	}
 	freed := p.SlabsFreed()
-	p.Parse(small)
-	p.Parse(small)
+	for range gositter.KeepResets + 2 {
+		p.Parse(small)
+	}
 	runtime.GC()
 	runtime.GC()
 	if !freed() {
 		t.Error("the huge input's slabs outlived two GCs")
+	}
+	runtime.KeepAlive(p)
+}
+
+// A deep input's stack link slab, given up by a reset, outlives outside
+// GCs until KeepResets parses end.
+func TestKeptLinkSlabOutlivesGC(t *testing.T) {
+	deep := []byte("func f() {" + strings.Repeat("g(", 10000))
+	small := []byte("func f() { g(1, 2, 3) }\n")
+	p := gositter.NewParser()
+	p.SetLanguage(golang.Language())
+	p.Parse(deep)
+	if n := p.LinkSlabCap(); n <= 4*gositter.ShrinkLinks {
+		t.Fatalf("input too small: link slab of %d", n)
+	}
+	alive := p.LinkSlabAlive()
+	p.Parse(small)
+	p.Parse(small)
+	runtime.GC()
+	runtime.GC()
+	if !alive() {
+		t.Fatal("a GC freed the kept link slab")
+	}
+	for range gositter.KeepResets + 1 {
+		p.Parse(small)
+	}
+	runtime.GC()
+	runtime.GC()
+	if alive() {
+		t.Error("the link slab outlived KeepResets parses and two GCs")
 	}
 	runtime.KeepAlive(p)
 }
@@ -497,7 +528,7 @@ func TestHugeLinkSlabFreedByLinklessParses(t *testing.T) {
 	p.SetLanguage(golang.Language())
 	p.Parse(deep)
 	freed := p.SlabsFreed()
-	for i := 0; i < 5; i++ {
+	for range gositter.KeepResets + 2 {
 		p.Parse([]byte("package p\n\nvar x = 1\n"))
 	}
 	p.Reset()

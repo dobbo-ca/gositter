@@ -47,8 +47,18 @@ func (p *Parser) SlabsFreed() func() bool {
 	return func() bool { return c.Value() == nil && n.Value() == nil && l.Value() == nil }
 }
 
+// LinkSlabAlive reports, after the call it returns, whether the stack
+// link slab the parser holds now is still allocated.
+func (p *Parser) LinkSlabAlive() func() bool {
+	n := weak.Make(p.stack.linksBox)
+	return func() bool { return n.Value() != nil }
+}
+
 // StackSlabCap is the capacity of the stack node slab, in entries.
 func (p *Parser) StackSlabCap() int { return cap(p.stack.nodes) }
+
+// LinkSlabCap is the capacity of the stack link slab, in link sets.
+func (p *Parser) LinkSlabCap() int { return cap(p.stack.moreLinks) }
 
 // HeapChunks is the number of heap chunks the parser holds.
 func (p *Parser) HeapChunks() int { return len(p.pool.heap) }
@@ -57,6 +67,8 @@ const (
 	KeptHeapChunks = keptHeapChunks
 	ShrinkChildren = shrinkChildren
 	ShrinkNodes    = shrinkNodes
+	ShrinkLinks    = shrinkLinks
+	KeepResets     = keepResets
 )
 
 // RepeatFlagsOK reports whether fHasRepeat covers every node with a repeat

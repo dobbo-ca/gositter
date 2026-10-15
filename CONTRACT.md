@@ -529,10 +529,16 @@ The runtime agent owns the details. These are the constraints.
   of parsers holds what the inputs in flight need and the GC frees the rest:
   a reset hands subtree heap chunks beyond the first 8 to a `sync.Pool` that
   all parsers share. Children, stack-node and stack-link slabs that a parse
-  outgrew, or that a reset gives up (above 64Ki, 8Ki and 4Ki entries, when
+  outgrew, or that a reset gives up (above 64Ki, 16Ki and 4Ki entries, when
   the parse before used under an eighth), go to free lists by power-of-two
-  class that all parsers share, held by weak pointers. A growth takes one of
-  under 8 times its need before it allocates. An outgrown slab is listed only
+  class that all parsers share, held by weak pointers. A link slab a reset
+  gives up, up to 32 MiB, is also held strongly until 1024 parses of all
+  parsers end without a growth taking it, so that an outside GC does not
+  make the next deep input regrow it. A growth takes one of under 8 times
+  its need before it allocates, or, for a need above 4Ki links, the
+  smallest held link slab that fits. Stack links grow as
+  `append` does and the free bits move with the children slab, so a cold
+  parse allocates as it would with no free lists. An outgrown slab is listed only
   at reset, because a slice taken before the growth may still read it.
   uint32 index slabs above 1Mi entries are dropped for the GC by the same
   rule. Slab free lists are not `sync.Pool`: its per-P slot hides a slab from

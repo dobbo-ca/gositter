@@ -47,6 +47,8 @@ type context struct {
 type scanner struct {
 	// context_vec. Slots above len keep their identifier buffers for reuse.
 	contextStack []context
+	// Own cache line: kept scanners share none.
+	_ [104]byte
 }
 
 // The isw* functions are libc and locale dependent. The parser never calls

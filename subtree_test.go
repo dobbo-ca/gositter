@@ -779,3 +779,42 @@ func TestCompressRandom(t *testing.T) {
 		t.Errorf("%d repeat nodes that depend on the column: too few", column)
 	}
 }
+
+// A cold parse must allocate as main did, or its GCs fall elsewhere and
+// peak RSS moves: the free bits move with a growth, and links
+// grow as append grows them.
+func TestColdGrowthAsMain(t *testing.T) {
+	childSlabs.Lock()
+	clear(childSlabs.free[:])
+	childSlabs.Unlock()
+	linkSlabs.Lock()
+	clear(linkSlabs.free[:])
+	linkSlabs.Unlock()
+
+	sp := newTestPool()
+	a := sp.bumpChildren(sp.room(100), 100)
+	sp.bumpChildren(sp.room(1), 1)
+	sp.mergeFree(a, 100)
+	bits := &sp.freeBits[0]
+	sp.room(uint32(cap(sp.children)))
+	if &sp.freeBits[0] != bits {
+		t.Error("a growth reallocated the free bits")
+	}
+	if sp.freeBits[a>>5]>>(a&31*2)&1 == 0 {
+		t.Error("a growth lost a free block")
+	}
+
+	var s stack
+	s.init(sp)
+	want := append([]moreLinkSet(nil), moreLinkSet{})
+	for i := uint32(1); len(want) < shrinkLinks; i++ {
+		if len(s.moreLinks) == cap(s.moreLinks) {
+			s.growLinks()
+		}
+		s.moreLink(i, 1)
+		want = append(want, moreLinkSet{})
+		if cap(s.moreLinks) != cap(want) {
+			t.Fatalf("link %d: cap %d, append gives %d", i, cap(s.moreLinks), cap(want))
+		}
+	}
+}

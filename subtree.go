@@ -148,8 +148,8 @@ const shrinkChildren = 1 << 16
 var heapChunks = sync.Pool{New: func() any { return new(heapChunk) }}
 
 // A children slab and its free bits, nil until a block is freed, then sized
-// to its capacity. Bits are clear beyond the slab's len, and all clear in
-// childSlabs.
+// to its capacity by the free. Bits are clear beyond the slab's len, and all
+// clear in childSlabs.
 type childSlab struct {
 	children []subtree
 	freeBits []uint64
@@ -414,12 +414,16 @@ func (sp *subtreePool) moveChildren(n int) {
 	old, used := sp.slab, len(sp.children)
 	old.children = sp.children
 	sp.outgrown = append(sp.outgrown, weak.Make(old))
-	sp.useSlab(getChildSlab(n), used)
-	copy(sp.children, old.children)
-	if sp.mergedFree > 0 { // some bits are set
-		sp.growFreeBits()
-		copy(sp.freeBits, old.freeBits[:(used+31)/32])
+	b := getChildSlab(n)
+	// The bits move with the children and grow when a block is freed:
+	// sizing them here allocated up to 4 MiB a parse that main did not.
+	if len(b.freeBits) < len(old.freeBits) {
+		b.freeBits, old.freeBits = old.freeBits, b.freeBits
+	} else if sp.mergedFree > 0 { // some bits are set
+		copy(b.freeBits, old.freeBits)
 	}
+	sp.useSlab(b, used)
+	copy(sp.children, old.children)
 }
 
 // Sizes the free bits to the slab, which they then go with.

@@ -5,6 +5,7 @@ package gositter
 
 import (
 	"math"
+	"slices"
 	"weak"
 )
 
@@ -148,9 +149,7 @@ func (s *stack) moreLink(self uint32, i int) *stackLink {
 	}
 	if s.more[self] == 0 {
 		s.more[self] = uint32(len(s.moreLinks))
-		if len(s.moreLinks) == cap(s.moreLinks) {
-			s.growLinks()
-		}
+		// nodeAddLink made room: growLinks keeps the old slab.
 		s.moreLinks = append(s.moreLinks, moreLinkSet{})
 	}
 	return &s.moreLinks[s.more[self]][i-1]
@@ -211,7 +210,10 @@ func (s *stack) growNodes() {
 	}
 	*s.nodesBox = s.nodes
 	s.nodesOut = append(s.nodesOut, weak.Make(s.nodesBox))
-	s.nodesBox = nodeSlabs.get(2 * n)
+	if s.nodesBox = nodeSlabs.get(2*n, shrinkNodes); s.nodesBox == nil {
+		s.nodesBox = new([]stackNode)
+		*s.nodesBox = make([]stackNode, 0, 2*n)
+	}
 	s.nodes = append(*s.nodesBox, s.nodes...)
 }
 
@@ -221,8 +223,17 @@ func (s *stack) growLinks() {
 	}
 	*s.linksBox = s.moreLinks
 	s.linksOut = append(s.linksOut, weak.Make(s.linksBox))
-	s.linksBox = linkSlabs.get(max(2*len(s.moreLinks), 16))
-	s.moreLinks = append(*s.linksBox, s.moreLinks...)
+	n := len(s.moreLinks)
+	if s.linksBox = linkSlabs.get(2*n, shrinkLinks); s.linksBox == nil {
+		s.linksBox = linkSlabs.get(n+1, shrinkLinks)
+	}
+	if s.linksBox != nil {
+		s.moreLinks = append(*s.linksBox, s.moreLinks...)
+		return
+	}
+	// append's growth, as main: doubling held a third more for good
+	s.moreLinks = slices.Grow(s.moreLinks, 1)
+	s.linksBox = new([]moreLinkSet)
 }
 
 // stack__subtree_node_count
@@ -396,6 +407,10 @@ func (s *stack) nodeAddLink(self uint32, link stackLink) {
 	if n.linkCount == 0 {
 		n.links[0] = link
 	} else {
+		// Here so that moreLink stays inlined.
+		if len(s.moreLinks) == cap(s.moreLinks) && (uint32(len(s.more)) <= self || s.more[self] == 0) {
+			s.growLinks()
+		}
 		*s.moreLink(self, int(n.linkCount)) = link
 	}
 	n.linkCount++
@@ -691,10 +706,17 @@ func (s *stack) reset() {
 	// len 2: nothing was parsed since the last reset
 	n := len(s.nodes)
 	parsed := n > 2
+	var now uint64
+	if parsed {
+		now = resets.Add(1)
+		linkSlabs.age(now)
+	}
 	if parsed && shrinkSlab(cap(s.nodes), n, shrinkNodes) {
 		*s.nodesBox = s.nodes
 		nodeSlabs.put(s.nodesBox)
-		s.nodesBox = nodeSlabs.get(64)
+		if s.nodesBox = nodeSlabs.get(64, shrinkNodes); s.nodesBox == nil {
+			s.nodesBox = new([]stackNode)
+		}
 		s.nodes = *s.nodesBox
 		if shrinkSlab(cap(s.nodePool), n, shrinkIndexes) {
 			s.nodePool = nil
@@ -705,8 +727,10 @@ func (s *stack) reset() {
 	}
 	if parsed && shrinkSlab(cap(s.moreLinks), len(s.moreLinks), shrinkLinks) {
 		*s.linksBox = s.moreLinks
-		linkSlabs.put(s.linksBox)
-		s.linksBox = linkSlabs.get(16)
+		linkSlabs.keep(s.linksBox, now)
+		if s.linksBox = linkSlabs.get(16, shrinkLinks); s.linksBox == nil {
+			s.linksBox = new([]moreLinkSet)
+		}
 		s.moreLinks = *s.linksBox
 	}
 	if cap(s.nodes) == 0 {

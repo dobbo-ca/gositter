@@ -1108,8 +1108,9 @@ func (p *Parser) recoverToState(version uint32, depth uint32, goalState StateID)
 			if errorChildCount > 0 {
 				resume = *sp.ptr(errorTree)
 				sp.arraySplice(&slice.subtrees, 0, 0, sp.childrenOf(errorTree))
-				for j := uint32(0); j < errorChildCount; j++ {
-					sp.retain(sp.children[slice.subtrees.off+j])
+				// sp.children loaded once, not per child.
+				for _, t := range sp.children[slice.subtrees.off:][:errorChildCount] {
+					sp.retain(t)
 				}
 			}
 			sp.arrayDelete(&errorTrees)
