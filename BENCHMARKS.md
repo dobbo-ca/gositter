@@ -13,8 +13,8 @@ geometric mean over the 21 grammars with the range in brackets:
 | input | parse, cycles | parse + Child(i) walk, cycles | parse + TreeCursor walk, cycles | parse, instructions | peak RSS, steady state |
 |---|---|---|---|---|---|
 | real files, no error | 0.49 (0.44 to 0.57) | 0.54 (0.49 to 0.61) | 0.52 (0.48 to 0.60) | 0.64 (0.57 to 0.75) | **1.35** (1.14 to 1.77) |
-| real files with an error | 0.45 (0.26 to 0.55) | 0.50 (0.29 to 0.58) | 0.48 (0.27 to 0.55) | 0.55 (0.26 to 0.70) | **1.46** (1.19 to 1.92) |
-| broken files | 0.40 (0.18 to 0.54) | 0.50 (0.24 to 0.76) | 0.43 (0.20 to 0.57) | 0.48 (0.19 to 0.69) | **1.37** (1.07 to 1.93) |
+| real files with an error | 0.45 (0.26 to 0.55) | 0.50 (0.29 to 0.58) | 0.48 (0.27 to 0.55) | 0.55 (0.25 to 0.70) | **1.46** (1.19 to 1.92) |
+| broken files | 0.40 (0.18 to 0.54) | 0.50 (0.24 to 0.76) | 0.43 (0.20 to 0.56) | 0.48 (0.19 to 0.69) | **1.37** (1.07 to 1.93) |
 
 On 16 threads the time ratios are within 0.05 of these. Peak RSS on 16 threads
 is 0.64 (0.30 to **1.24**) on real files and 0.51 (0.21 to **1.39**) on broken files.
@@ -25,15 +25,15 @@ Against C through cgo (go-tree-sitter v0.25.0), parse on one thread costs 0.28
 What this says about the earlier claims:
 
 - "Parse at 0.31 to 0.35 of the cgo cycles": confirmed, 0.28. But cgo itself
-  costs 1.88 times the cycles of pure C on the same work (the binding routes
-  every malloc through a Go callback and copies the source per read), so the
-  honest ratio to C is 0.49.
+  costs 1.74 times the cycles of pure C on the same work (real files, parse,
+  one thread; the binding routes every malloc through a Go callback and copies
+  the source per read), so the honest ratio to C is 0.49 (0.28 x 1.74).
 - "Faster than C on deep error recovery": true for most inputs, not all. Of
   254 extreme inputs that both sides finished, gositter used fewer cycles on
   247. The worst case is 1.16 times C. gositter finished 9 inputs that C did
   not (6 time limit, 2 memory cap, 1 segfault in C); the reverse never happened.
 - "Memory at or below C on the extreme inputs": refuted. gositter used less
-  peak RSS on 130 of 254 extreme inputs and more on 124, up to 3.51 times. On
+  peak RSS on 130 of 254 extreme inputs and more on 124, up to 3.51 times (3.26 in the earlier run). On
   ordinary files at one thread gositter peak RSS is above C in 164 of 165
   rows, median 1.42 times (1.93 in the earlier run).
 
@@ -42,7 +42,9 @@ lists (33,000 files), and node counts and a per-node checksum agree in all 244
 walk configs. The scala real list, which the earlier run could not compare
 under a 2 GB cap, was compared with an 8 GB cap. The cgo side did not finish 5
 configs (scala at 16 threads under the 8 GB cap, cpp broken at 16 threads under
-2 GB); gositter and C finished them.
+2 GB); gositter and C finished them. In the scala table, the cycles-vs-cgo
+cells for real parse and real cursor at all threads use 2 of the 3 cgo rounds,
+because round 1 of each was killed at the 8 GB cap.
 
 ## Where gositter is slower or larger than pure C
 
@@ -53,15 +55,16 @@ configs (scala at 16 threads under the 8 GB cap, cpp broken at 16 threads under
 - Peak RSS at 16 threads: above C in 35 of 165 rows, median 0.73, worst 1.74
   (kotlin, broken, cursor).
 - Traversal alone (walk pass minus parse pass), real files, one thread: the
-  Child(i) walk costs 1.07 times the cycles of C (0.94 to 1.24) and is the only
-  traversal above C. The TreeCursor walk costs 0.72 (0.42 to 0.84); against C
+  Child(i) walk costs 1.07 times the cycles of C (0.76 to 1.42) and is the only
+  traversal above C. The TreeCursor walk costs 0.72 (0.43 to 0.94); against C
   built by clang it is 0.40. Parse plus Child(i) walk is below C by a wide
   margin only because the parse is that much cheaper.
 - No row of the tables is above 1.00 in cycles, instructions or CPU time
   against pure C. The highest cycle ratio is 0.76 (tsx and rust, broken, Child(i)
   walk) and the highest instruction ratio is 0.79 (json, broken, Child(i) walk).
 - Extreme inputs: gositter used more cycles than C on 7 of the 254 inputs
-  that both finished, worst 1.16 (scala), then 1.14 (kotlin), 1.11 (scala) and 1.06 (cpp).
+  that both finished, worst 1.16 (scala), then 1.14 (kotlin), 1.11 (scala), 1.06 (cpp), 1.04 (java),
+  1.01 (json) and 1.00 (bash).
   Listed one by one at the end of this file.
 - A new process that parses one 2 KB file: about 1.6 times the cycles of C from
   exec to exit across the 21 grammars (bash: 4.2 M against 2.3 M, 0.87 ms against
@@ -86,6 +89,15 @@ seeing this harness or its results, and measured whole processes from outside
 with `perf stat`, taking the per-pass cost from the difference between an
 8-pass and a 2-pass run. It covered 12 grammars. Its numbers:
 
+| claim | its result |
+|---|---|
+| fewer cycles than cgo, one thread | 0.23 to 0.35 on real files, 0.19 to 0.36 on broken |
+| at or below pure C on time, CPU, cycles | holds in all 112 configs: parse 0.45 to 0.63, parse + cursor walk 0.73 to 0.95 |
+| at or below pure C on instructions | fails for json real + walk, 1.01 |
+| faster than C on extreme inputs | 59 of 64 faster, 5 slower, up to 1.28 |
+| memory at or below pure C | fails: 1.04 to 3.0 times C in 111 of 112 configs |
+| first parse in a new process | the parse 0.49 to 0.78 of C; the whole process 1.07 to 1.47 times the cycles |
+
 It also built C with -O3, with clang, without the optimisation pragma, and
 with a per-thread free-list allocator. The best variant for C moved the parse
 ratio by 0.08 at most (0.52 to 0.57 for c, with the allocator). No variant
@@ -101,8 +113,8 @@ after from this one, real files at one thread unless the row says otherwise.
 
 | case | cause | fix | before | after |
 |---|---|---|---|---|
-| TreeCursor walk alone | `Node` has 6 fields, so Go keeps it in memory and each copy stalls on store forwarding; the cursor is a line-by-line port of an iterator C inlines | pack `Node` into 4 fields (#4), rewrite cursor movement as one loop (#6) | 2.6 cycles | 0.72 cycles (0.42 to 0.84); parse + cursor 0.81 to 0.52 |
-| Child(i) walk alone | same `Node` copies | the 4-field `Node` (#4) | 2.3 cycles | 1.07 cycles (0.94 to 1.24); parse + walk 0.68 to 0.54 |
+| TreeCursor walk alone | `Node` has 6 fields, so Go keeps it in memory and each copy stalls on store forwarding; the cursor is a line-by-line port of an iterator C inlines | pack `Node` into 4 fields (#4), rewrite cursor movement as one loop (#6) | 2.6 cycles | 0.72 cycles (0.43 to 0.94); parse + cursor 0.81 to 0.52 |
+| Child(i) walk alone | same `Node` copies | the 4-field `Node` (#4) | 2.3 cycles | 1.07 cycles (0.76 to 1.42); parse + walk 0.68 to 0.54 |
 | Child(i) on broken files | one or two UTF-16 mutants per list parse to one ERROR node with 10,000 to 38,000 children; Child(i) is quadratic there on both sides and gositter's step ran 1.5 times the instructions | leaner scan step in `Node.child` (#7) | tsx 1.16, rust 1.06 cycles | 0.76, 0.76 |
 | hcl instructions | 0.56 tokens per byte, so tree balancing decides the ratio; `summarizeChildren` ran 695 instructions per call against 275 in C | in-place reduce before a trailing SHIFT_REPEAT, a straight-line summarize for two heap children, drop a redundant summarize in `compress` (#5) | 1.11 instructions, 0.81 cycles | 0.75 instructions, 0.51 cycles |
 | extreme inputs | `summarizeChildren` again, plus a recovery loop that summarizes all children of the ERROR node on every recovery (C has the same quadratic) | split summarize loop, resume the ERROR summary from the node it replaces (#5) | 1.14 to 1.32 cycles (c, cpp, bash); 15 inputs above C | 0.14 to 0.18 on those three; 7 inputs above C, worst 1.16 |
@@ -111,7 +123,8 @@ after from this one, real files at one thread unless the row says otherwise.
 
 Against the earlier run gositter peak RSS is 0.70 of what it was in the
 steady state at one thread and 0.66 at 16 threads (geometric mean over 61
-lists, same C side within 2%).
+lists, same C side within 2%). By set at one thread: 0.63 on real files (the
+1.35 and 2.15 above), 0.84 with an error, 0.67 on broken files.
 
 What the memory fix costs: a caller that makes its own garbage (1 MB per file
 in the skeptic's driver) runs 1.5 to 3 times the GCs. The GC count follows the
@@ -120,35 +133,62 @@ marked heap by holding the stack slab weakly (`r3-gc.md`). Measured by its
 skeptic (`r3-skeptic.md`): python broken +2.6% wall at one thread, +8.1% at 8
 and +10.6% at 16; cpp broken +1.2% to +2.3%. Holding the slab strongly brings
 the GC count back but puts golang broken one-thread cursor at +8.5% peak RSS
-(`r3-gc.md`). The owner took parity with C on memory over that speed loss. The
-benchmark harness does not add garbage of its own, so this cost is not in the
-tables above.
+(`r3-gc.md`). The owner took parity with C on memory over that speed loss.
+The parse and Child(i) walk rows add almost no garbage of their own (0.6 to 1.8
+KB per parse on broken files at one thread for ruby, javascript, bash and
+rust), so this cost is not in them. The TreeCursor rows do: the harness calls
+`Walk()` for every file, which allocates a new `TreeCursor` whose stack grows by
+append, 264 KB per parse for ruby, 257 for javascript, 172 for bash and 112 for
+rust on broken files at one thread (`go_alloc_bytes` per parse, this run). The
+fix 5 GC cost may therefore already show in the cursor rows (inference, not
+tested). `r3-gc.md` finds the cursor walk driving the GC phase in the golang
+broken cursor row.
 
 Not fixed or worse than the earlier run:
 
 - Peak RSS at one thread is still above C, 1.35 steady on real files. What
-  stays is the Go runtime (3 to 4 MB) and the lookup table built at first use
-  (1 to 3.5 MB per language).
+  stays is the Go runtime (3.4 to 3.7 MiB at start) and the lookup table built
+  at first use (0.2 to 2.1 MiB in the five grammars measured), from
+  `mem-rootcause-budget.md`.
 - The Child(i) walk alone is still above C, 1.07.
-- TreeCursor walk alone is above 0.80 of C for verilog (0.84), scala (0.81) and
-  julia (0.81). python and ruby are 0.75.
+- TreeCursor walk alone is above the 0.80 target for ruby (0.94), php (0.88),
+  scala (0.87), verilog (0.86), bash (0.82) and julia (0.81). python is 0.73.
+  The earlier run had python and ruby at 0.82 to 0.83. These are medians of the
+  passes, as in the Method section.
 - Extreme inputs: 7 of 254 still use more cycles than C, worst scala 1.16.
 - Peak RSS of the TreeCursor walk on broken files at one thread went up
-  against the earlier run for four grammars while parse and Child(i) walk rows
-  of the same grammars fell: ruby 170 to 220 MB, rust 98 to 113, javascript
-  144 to 156, bash 139 to 151. C is unchanged to within 1%. The cause is not
-  diagnosed.
+  against the earlier run for six grammars while parse and Child(i) walk rows
+  of the same grammars fell (median of the three rounds): ruby 170 to 220 MB,
+  typescript 103 to 118, rust 98 to 113, javascript 144 to 156, bash 139 to
+  150, java 111 to 115. C is unchanged to within 1%. The cause is not
+  diagnosed. These cursor rows allocate 110 to 264 KB of Go garbage per parse
+  (see above), which may be linked to the fix 5 GC behaviour; that is an
+  inference, not tested, and python allocates 123 KB per parse and fell.
+- Peak RSS on some extreme inputs rose against the earlier run while C stayed
+  flat: hcl `unterminated_a_ac3879__n100000` 489 to 576 MiB (+18%), java
+  `random_bracket_soup_7022a9__n1000000` 55 to 63 (+15%, Go allocation 59 to
+  76 MB), ruby `pair_0dd45c__n100000` 31 to 35 (+13%), ruby
+  `rep_q_n_428283__n30000` 217 to 233 (+7%), hcl `rep_6c2f79__n100000` 416 to
+  445 (+7%). Each is one parse with the same instruction count, and the Go
+  malloc counts went up (hcl 506 to 609). Over all 254 extreme inputs both
+  sides finished the change is mixed: 8 rose by more than 3%, 13 fell by more
+  than 3%, geometric mean 0.998. The worst ratio to C went from 3.26 to 3.51
+  (ruby `rep_q_n_428283__n30000`). The cause is not diagnosed.
 - A new process still costs 1.6 times the cycles of C across grammars; the
   fix is outside the library.
 
 Notes from the second pass:
 
-- A checkpoint index for Child(i) on wide nodes took the broken-file walk to
-  0.14 to 0.20 of C, but it was 1.8 times slower and larger than today on a
-  tree with 12,000 wide nodes. Not recommended as written, and not merged.
-- The Go-heap-only version of the memory fix (never drop slabs) gets the same
-  one-thread numbers but is 9% worse at 16 threads and brings back the
-  behaviour that 7b4d2a8 removed.
+- A checkpoint index for Child(i) on wide nodes (patch `walk-broken.diff`) took
+  the broken-file walk to 0.14 to 0.20 of C, but it was 1.8 times slower and
+  larger than today on a tree with 12,000 wide nodes. Those numbers are from
+  the earlier session, no result note was kept, and they were not rerun. It was
+  not merged.
+- The Go-heap-only version of the memory fix (never drop slabs) gets close to
+  the one-thread numbers (`mem-prototype-bounded-retention.md`) but at 16
+  threads peak RSS is +20% on python real and +45% on cpp broken
+  (`mem-rootcause-budget.md`). It also keeps the huge children slabs that the
+  drop rule from commit 7b4d2a8 releases after a huge input.
 - `Node.Preorder` was 0.89 to 0.93 of the cycles of C's cursor walk in the
   earlier run. It was not measured in this run.
 - Cycle counts moved by up to 3% between byte-identical binaries in these
@@ -219,8 +259,9 @@ What favours which side:
   those 8 grammars is 0.51 against 0.50 with it (real files, one thread).
 - C at -O3 uses 1.01 times the cycles of -O2 here. C built by clang 14 uses
   0.98 times.
-- cgo adds -fPIC, which costs C 8% in cycles. The binding costs another 1.74
-  times.
+- cgo adds -fPIC, which costs C 8% in cycles (1.08 over all configs). The
+  binding costs another 1.58 times on real files, parse, one thread (about 1.7
+  over all configs).
 - "All cores" is 16 threads on 8 cores with SMT, the same for every side.
 
 Not measured: arm64 (a run on an M4 Pro was stopped at 14% when the work moved
@@ -236,8 +277,9 @@ the same CPU. The pod has 12 GiB of memory as request and limit. 1-minute load
 between 1.4 and 11.2 during the matrix run, median 3.7. go1.27.2, gcc 12.2.0,
 clang 14.0.6. Run-to-run spread on one thread, as the range over the three
 rounds (median over configs): 1.5% for wall, 2.9% for cycles, under 0.01% for
-instructions; the earlier run had 0.9% and 1.0%. Pure C moved 1.2% in cycles
-between the two runs (geometric mean), so the two nodes run at the same speed
+instructions; the earlier run had 0.9% and 1.0%. Pure C moved 0.8% in cycles
+between the two runs (geometric mean of median cycles over the 366 configs
+both runs have; 1.1% at one thread, 0.5% at 16), so the two nodes run at the same speed
 to within that.
 
 ## Reproduce
