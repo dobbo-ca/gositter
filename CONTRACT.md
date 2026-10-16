@@ -538,8 +538,11 @@ The runtime agent owns the details. These are the constraints.
   its need before it allocates, or, for a need above 4Ki links, the
   smallest held link slab that fits. Stack links grow as
   `append` does and the free bits move with the children slab, so a cold
-  parse allocates as it would with no free lists. An outgrown slab is listed only
-  at reset, because a slice taken before the growth may still read it.
+  parse allocates as it would with no free lists. A parser's first parse
+  grows children slabs below 64Ki entries by a plain copy and leaves the old
+  ones to the GC: tracking them moved the GCs of a cold parse. An outgrown
+  slab is listed only at reset, because a slice taken before the growth may
+  still read it.
   uint32 index slabs above 1Mi entries are dropped for the GC by the same
   rule. Slab free lists are not `sync.Pool`: its per-P slot hides a slab from
   a goroutine that moved to another P.

@@ -791,19 +791,27 @@ func TestColdGrowthAsMain(t *testing.T) {
 	clear(linkSlabs.free[:])
 	linkSlabs.Unlock()
 
-	sp := newTestPool()
-	a := sp.bumpChildren(sp.room(100), 100)
-	sp.bumpChildren(sp.room(1), 1)
-	sp.mergeFree(a, 100)
-	bits := &sp.freeBits[0]
-	sp.room(uint32(cap(sp.children)))
-	if &sp.freeBits[0] != bits {
-		t.Error("a growth reallocated the free bits")
-	}
-	if sp.freeBits[a>>5]>>(a&31*2)&1 == 0 {
-		t.Error("a growth lost a free block")
+	// A first parse tracks no small slab, as main.
+	for _, warm := range []bool{false, true} {
+		sp := newTestPool()
+		sp.warm = warm
+		a := sp.bumpChildren(sp.room(100), 100)
+		sp.bumpChildren(sp.room(1), 1)
+		sp.mergeFree(a, 100)
+		bits := &sp.freeBits[0]
+		sp.room(uint32(cap(sp.children)))
+		if &sp.freeBits[0] != bits {
+			t.Errorf("warm %v: a growth reallocated the free bits", warm)
+		}
+		if sp.freeBits[a>>5]>>(a&31*2)&1 == 0 {
+			t.Errorf("warm %v: a growth lost a free block", warm)
+		}
+		if (len(sp.outgrown) > 0) != warm {
+			t.Errorf("warm %v: %d outgrown slabs tracked", warm, len(sp.outgrown))
+		}
 	}
 
+	sp := newTestPool()
 	var s stack
 	s.init(sp)
 	want := append([]moreLinkSet(nil), moreLinkSet{})

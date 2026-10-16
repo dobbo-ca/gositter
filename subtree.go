@@ -236,6 +236,7 @@ type subtreePool struct {
 	// childSlabs at reset. Weak: a GC in the parse frees them, as garbage.
 	slab     *childSlab
 	outgrown []weak.Pointer[childSlab]
+	warm     bool // a parse has ended
 
 	// Freed blocks of up to 64 entries wait here, by size, linked through
 	// their first entry, and serve the next request of their size as they
@@ -304,6 +305,7 @@ func (sp *subtreePool) reset() {
 		}
 	}
 	sp.outgrown = sp.outgrown[:0]
+	sp.warm = sp.warm || len(sp.children) > 1
 	// len 1: nothing was parsed since the last reset
 	if n := len(sp.children); n > 1 && cap(sp.children) > shrinkChildren && n < cap(sp.children)/8 {
 		sp.slab.children = sp.children
@@ -409,8 +411,16 @@ func (sp *subtreePool) growChildren(n uint32) {
 	sp.moveChildren(min(max(2*cap(sp.children), need), math.MaxUint32))
 }
 
-// Moves the children to a slab of at least n entries from childSlabs.
+// Moves the children to a slab of at least n entries from childSlabs, or,
+// in a parser's first parse below shrinkChildren, to a new one as main did.
 func (sp *subtreePool) moveChildren(n int) {
+	// Tracking these moved cold GCs; main copies.
+	if !sp.warm && cap(sp.children) < shrinkChildren {
+		grown := make([]subtree, len(sp.children), n)
+		copy(grown, sp.children)
+		sp.children, sp.slab.children = grown, grown
+		return
+	}
 	old, used := sp.slab, len(sp.children)
 	old.children = sp.children
 	sp.outgrown = append(sp.outgrown, weak.Make(old))
