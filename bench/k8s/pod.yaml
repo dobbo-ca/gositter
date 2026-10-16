@@ -11,13 +11,13 @@ metadata:
   namespace: gositter-bench
 spec:
   restartPolicy: Never
-  nodeName: hrimfaxi
+  nodeName: gullfaxi
   containers:
   - name: bench
     image: golang:1.27-bookworm
     command: ["sleep", "infinity"]
     resources:
-      requests: {cpu: "3", memory: 8Gi}   # node has 3.4 cpu unrequested; 14 is rejected (OutOfcpu)
+      requests: {cpu: "3", memory: 12Gi}   # = limit: never above request, so evicted last
       limits: {memory: 12Gi}   # no cpu limit: no CFS throttling
     securityContext:
       capabilities:
