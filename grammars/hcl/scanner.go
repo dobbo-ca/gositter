@@ -47,6 +47,8 @@ type context struct {
 type scanner struct {
 	// context_vec. Slots above len keep their identifier buffers for reuse.
 	contextStack []context
+	// Own cache line: kept scanners share none.
+	_ [104]byte
 }
 
 // The isw* functions are libc and locale dependent. The parser never calls
@@ -317,3 +319,19 @@ func (s *scanner) Scan(l *gositter.Lexer, validSymbols []bool) bool {
 
 // tree_sitter_hcl_external_scanner_create
 func newScanner() gositter.ExternalScanner { return &scanner{} }
+
+// Reset: the state newScanner returns, with the context slots kept.
+func (s *scanner) Reset() {
+	c := s.contextStack[:0]
+	// Give back what a huge input grew.
+	if cap(c) > 16 {
+		c = nil
+	}
+	for _, ctx := range c[:cap(c)] {
+		if cap(ctx.heredocIdentifier) > 1024 {
+			c = nil
+			break
+		}
+	}
+	s.contextStack = c
+}

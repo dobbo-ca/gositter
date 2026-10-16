@@ -375,3 +375,9 @@ func (s *scanner) Deserialize(buf []byte) {
 		}
 	}
 }
+
+// Reset: the state newScanner returns, with the buffers kept.
+func (s *scanner) Reset() {
+	s.insideInterpolatedString = false
+	s.Deserialize(nil)
+}

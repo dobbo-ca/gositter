@@ -374,7 +374,7 @@ func TestChildrenAllocator(t *testing.T) {
 			b := block{tag: subtree(step) << 32}
 			if r.Intn(3) == 0 {
 				// As reduceInPlace does.
-				b.a = subtreeArray{off: sp.bumpChildren(n), size: n, cap: n}
+				b.a = subtreeArray{off: sp.bumpChildren(sp.room(n), n), size: n, cap: n}
 				fill(b, 0)
 				sp.settleChildren(&b.a)
 			} else {
@@ -777,5 +777,52 @@ func TestCompressRandom(t *testing.T) {
 	}
 	if column < 1000 {
 		t.Errorf("%d repeat nodes that depend on the column: too few", column)
+	}
+}
+
+// A cold parse must allocate as main did, or its GCs fall elsewhere and
+// peak RSS moves: the free bits move with a growth, and links
+// grow as append grows them.
+func TestColdGrowthAsMain(t *testing.T) {
+	childSlabs.Lock()
+	clear(childSlabs.free[:])
+	childSlabs.Unlock()
+	linkSlabs.Lock()
+	clear(linkSlabs.free[:])
+	linkSlabs.Unlock()
+
+	// A first parse tracks no small slab, as main.
+	for _, warm := range []bool{false, true} {
+		sp := newTestPool()
+		sp.warm = warm
+		a := sp.bumpChildren(sp.room(100), 100)
+		sp.bumpChildren(sp.room(1), 1)
+		sp.mergeFree(a, 100)
+		bits := &sp.freeBits[0]
+		sp.room(uint32(cap(sp.children)))
+		if &sp.freeBits[0] != bits {
+			t.Errorf("warm %v: a growth reallocated the free bits", warm)
+		}
+		if sp.freeBits[a>>5]>>(a&31*2)&1 == 0 {
+			t.Errorf("warm %v: a growth lost a free block", warm)
+		}
+		if (len(sp.outgrown) > 0) != warm {
+			t.Errorf("warm %v: %d outgrown slabs tracked", warm, len(sp.outgrown))
+		}
+	}
+
+	sp := newTestPool()
+	var s stack
+	s.init(sp)
+	want := append([]moreLinkSet(nil), moreLinkSet{})
+	for i := uint32(1); len(want) < shrinkLinks; i++ {
+		if len(s.moreLinks) == cap(s.moreLinks) {
+			s.growLinks()
+		}
+		s.moreLink(i, 1)
+		want = append(want, moreLinkSet{})
+		if cap(s.moreLinks) != cap(want) {
+			t.Fatalf("link %d: cap %d, append gives %d", i, cap(s.moreLinks), cap(want))
+		}
 	}
 }

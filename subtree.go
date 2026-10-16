@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"math"
 	"math/bits"
+	"slices"
 	"strconv"
 	"sync"
+	"weak"
 )
 
 // subtree.c and subtree.h.
@@ -137,12 +139,67 @@ type heapChunk [1 << heapChunkBits]subtreeHeap
 // need, not one high-water mark each.
 const keptHeapChunks = 8
 
-// A reset drops a children slab above shrinkChildren entries when the parse
-// before it used under an eighth of it: a pooled parser held the slab of its
-// largest input for good, and that counted in every heap goal.
+// A reset hands a children slab above shrinkChildren entries to childSlabs
+// when the parse before it used under an eighth of it: a pooled parser held
+// the slab of its largest input for good, and that counted in every heap
+// goal.
 const shrinkChildren = 1 << 16
 
 var heapChunks = sync.Pool{New: func() any { return new(heapChunk) }}
+
+// A children slab and its free bits, nil until a block is freed, then sized
+// to its capacity by the free. Bits are clear beyond the slab's len, and all
+// clear in childSlabs.
+type childSlab struct {
+	children []subtree
+	freeBits []uint64
+}
+
+// Children slabs that a reset dropped or a parse outgrew, by floor(log2
+// cap), shared by all parsers. Held weakly: a GC frees them as it would
+// garbage, and until then a growth takes one instead of allocating. Dropping
+// and regrowing them was the garbage that drove a warm parser's heap up to
+// its GC goal. A sync.Pool missed here: its per-P slot hides a slab from a
+// goroutine that moved to another P.
+var childSlabs struct {
+	sync.Mutex
+	free [33][]weak.Pointer[childSlab]
+}
+
+// A slab of at least n entries: a free one of under eight times n, else a
+// new one. The bound keeps a pathological slab out of ordinary parses.
+func getChildSlab(n int) *childSlab {
+	c := bits.Len(uint(n - 1))
+	childSlabs.Lock()
+	for k := c; k <= c+1 && k < len(childSlabs.free); k++ {
+		l := childSlabs.free[k]
+		for len(l) > 0 {
+			b := l[len(l)-1].Value()
+			l = l[:len(l)-1]
+			if b != nil {
+				childSlabs.free[k] = l
+				childSlabs.Unlock()
+				return b
+			}
+		}
+		childSlabs.free[k] = l
+	}
+	childSlabs.Unlock()
+	return &childSlab{children: make([]subtree, 0, n)}
+}
+
+// Clears the bits of b's used entries and hands b to childSlabs.
+func putChildSlab(b *childSlab) {
+	clear(b.freeBits[:min(len(b.freeBits), (len(b.children)+31)/32)])
+	k := bits.Len(uint(cap(b.children))) - 1
+	childSlabs.Lock()
+	defer childSlabs.Unlock()
+	l := childSlabs.free[k]
+	if len(l) == cap(l) { // forget the collected ones before growing
+		l = slices.DeleteFunc(l, func(w weak.Pointer[childSlab]) bool { return w.Value() == nil })
+	}
+	childSlabs.free[k] = append(l, weak.Make(b))
+}
 
 // reserveHeap takes the next chunk from heapChunks, one chunk ahead of need.
 // allocate is inlined into the reduce path and a call there would end that,
@@ -173,6 +230,13 @@ type subtreePool struct {
 	freeBlocks [childClassCount]uint32
 	freeLists  [3]uint64 // the non-empty lists
 	freeBits   []uint64
+
+	// The box of children and freeBits, and the slabs this parse outgrew.
+	// A slice taken before a growth may still read those, so they go to
+	// childSlabs at reset. Weak: a GC in the parse frees them, as garbage.
+	slab     *childSlab
+	outgrown []weak.Pointer[childSlab]
+	warm     bool // a parse has ended
 
 	// Freed blocks of up to 64 entries wait here, by size, linked through
 	// their first entry, and serve the next request of their size as they
@@ -220,9 +284,12 @@ func childClassSize(class uint32) uint32 {
 }
 
 func (sp *subtreePool) reset() {
-	if cap(sp.children) == 0 {
+	if sp.slab == nil {
 		sp.heap = []*heapChunk{new(heapChunk)}
-		sp.children = make([]subtree, 1, 4096)
+		sp.useSlab(getChildSlab(4096), 1)
+	}
+	if shrinkSlab(cap(sp.freeTrees), int(sp.heapLen), shrinkIndexes) {
+		sp.freeTrees = nil
 	}
 	sp.heapLen = 1
 	if len(sp.heap) > keptHeapChunks {
@@ -232,10 +299,18 @@ func (sp *subtreePool) reset() {
 		}
 		sp.heap = sp.heap[:keptHeapChunks]
 	}
+	for _, w := range sp.outgrown {
+		if b := w.Value(); b != nil {
+			putChildSlab(b)
+		}
+	}
+	sp.outgrown = sp.outgrown[:0]
+	sp.warm = sp.warm || len(sp.children) > 1
 	// len 1: nothing was parsed since the last reset
 	if n := len(sp.children); n > 1 && cap(sp.children) > shrinkChildren && n < cap(sp.children)/8 {
-		sp.children = make([]subtree, 1, 4096)
-		sp.freeBits = nil
+		sp.slab.children = sp.children
+		putChildSlab(sp.slab)
+		sp.useSlab(getChildSlab(4096), 1)
 	} else {
 		clear(sp.freeBits[:min(len(sp.freeBits), (len(sp.children)+31)/32)])
 		sp.children = sp.children[:1]
@@ -308,26 +383,72 @@ func (sp *subtreePool) array(a subtreeArray) []subtree {
 	return sp.children[a.off : a.off+a.size]
 }
 
-// Bump allocation of n slots at the end of the children slab.
-func (sp *subtreePool) bumpChildren(n uint32) uint32 {
+// Bump allocation of n slots at the end of the children slab:
+// bumpChildren(room(n), n). room makes space and returns where the slots
+// start. Two calls, so that both are inlined.
+func (sp *subtreePool) room(n uint32) int {
 	off := len(sp.children)
-	need := off + int(n)
-	if need > cap(sp.children) {
-		sp.growChildren(need)
+	if off+int(n) > cap(sp.children) {
+		sp.growChildren(n)
 	}
-	sp.children = sp.children[:need]
+	return off
+}
+
+func (sp *subtreePool) bumpChildren(off int, n uint32) uint32 {
+	sp.children = sp.children[:off+int(n)]
 	return uint32(off)
 }
 
 // The capacity never passes 2^32-1 entries, so every offset and length of
-// the slab fits in 32 bits.
-func (sp *subtreePool) growChildren(need int) {
+// the slab fits in 32 bits. Out of line so that room is inlined.
+//
+//go:noinline
+func (sp *subtreePool) growChildren(n uint32) {
+	need := len(sp.children) + int(n)
 	if need > math.MaxUint32 {
 		panic(errSlabFull)
 	}
-	grown := make([]subtree, len(sp.children), min(max(2*cap(sp.children), need), math.MaxUint32))
-	copy(grown, sp.children)
-	sp.children = grown
+	sp.moveChildren(min(max(2*cap(sp.children), need), math.MaxUint32))
+}
+
+// Moves the children to a slab of at least n entries from childSlabs, or,
+// in a parser's first parse below shrinkChildren, to a new one as main did.
+func (sp *subtreePool) moveChildren(n int) {
+	// Tracking these moved cold GCs; main copies.
+	if !sp.warm && cap(sp.children) < shrinkChildren {
+		grown := make([]subtree, len(sp.children), n)
+		copy(grown, sp.children)
+		sp.children, sp.slab.children = grown, grown
+		return
+	}
+	old, used := sp.slab, len(sp.children)
+	old.children = sp.children
+	sp.outgrown = append(sp.outgrown, weak.Make(old))
+	b := getChildSlab(n)
+	// The bits move with the children and grow when a block is freed:
+	// sizing them here allocated up to 4 MiB a parse that main did not.
+	if len(b.freeBits) < len(old.freeBits) {
+		b.freeBits, old.freeBits = old.freeBits, b.freeBits
+	} else if sp.mergedFree > 0 { // some bits are set
+		copy(b.freeBits, old.freeBits)
+	}
+	sp.useSlab(b, used)
+	copy(sp.children, old.children)
+}
+
+// Sizes the free bits to the slab, which they then go with.
+func (sp *subtreePool) growFreeBits() {
+	if n := (cap(sp.children) + 31) / 32; n > len(sp.freeBits) {
+		grown := make([]uint64, n)
+		copy(grown, sp.freeBits)
+		sp.freeBits = grown
+		sp.slab.freeBits = grown
+	}
+}
+
+// Makes b the children slab, with n entries in use.
+func (sp *subtreePool) useSlab(b *childSlab, n int) {
+	sp.slab, sp.children, sp.freeBits = b, b.children[:n], b.freeBits
 }
 
 // Moves a region at the end of the slab, as popLinear leaves it, into a free
@@ -471,7 +592,7 @@ func (sp *subtreePool) allocChildren(n uint32) (off, size uint32) {
 	if off = sp.takeFree(class, size); off != 0 {
 		return off, size
 	}
-	return sp.bumpChildren(size), size
+	return sp.bumpChildren(sp.room(size), size), size
 }
 
 // Gives back a block of up to exactChildClasses entries. C calls free here.
@@ -485,11 +606,7 @@ func (sp *subtreePool) freeQuick(off, size uint32) {
 // it with a free block behind it and one in front of it. What then reaches
 // the end of the slab is cut off, the rest goes on its list.
 func (sp *subtreePool) mergeFree(off, size uint32) {
-	if n := (cap(sp.children) + 31) / 32; n > len(sp.freeBits) {
-		grown := make([]uint64, n)
-		copy(grown, sp.freeBits)
-		sp.freeBits = grown
-	}
+	sp.growFreeBits()
 	if end := off + size; end < uint32(len(sp.children)) && sp.freeBits[end>>5]>>(end&31*2)&1 != 0 {
 		size += sp.unlinkFree(end)
 	}
@@ -520,11 +637,11 @@ func (sp *subtreePool) arrayReserve(a *subtreeArray, newCap uint32) {
 	off := sp.takeFree(class, newCap)
 	if off == 0 {
 		if a.cap > 0 && a.off+a.cap == uint32(len(sp.children)) {
-			sp.bumpChildren(newCap - a.cap)
+			sp.bumpChildren(sp.room(newCap-a.cap), newCap-a.cap)
 			a.cap = newCap
 			return
 		}
-		off = sp.bumpChildren(newCap)
+		off = sp.bumpChildren(sp.room(newCap), newCap)
 	}
 	copy(sp.children[off:off+a.size], sp.children[a.off:a.off+a.size])
 	size := a.size
@@ -1618,7 +1735,7 @@ func (sp *subtreePool) newNode(symbol Symbol, children *subtreeArray, production
 		if size <= children.cap {
 			sp.children = sp.children[:children.off+size]
 		} else {
-			sp.bumpChildren(size - children.cap)
+			sp.bumpChildren(sp.room(size-children.cap), size-children.cap)
 		}
 	} else {
 		class, _ = childClass(children.cap)

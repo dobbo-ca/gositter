@@ -333,6 +333,18 @@ Each grammar with a `scanner.c` has a hand-written `scanner.go` with
 - The serialized bytes must be byte-identical to C. The runtime compares them
   with `memcmp` semantics (`ts_external_scanner_state_eq`) and that decides
   stack merges and token reuse, so a different encoding changes the tree.
+- A scanner may have `Reset()`. The parser keeps the scanner of its last
+  parse and, for the next parse in the same language, calls `Reset()` instead
+  of `New()`. `Reset()` must give exactly the state `New()` returns, in every
+  field, whatever state the last parse left, including a stopped or panicked
+  one. Only slice capacity may differ, and nothing handed to `Serialize`'s
+  buffer or kept by the runtime may alias what `Reset()` reuses.
+  `Deserialize(nil)` is not enough where a field is outside the serialized
+  state (bash, python).
+  The kept scanner must stay small: `Reset()` drops any buffer a huge input
+  grew (bash: more than 16 heredoc slots or a 1 KB slot buffer; hcl: more
+  than 16 context slots or a 1 KB heredoc identifier). SetLanguage drops the
+  kept scanner.
 - A scanner keeps its arrays as slices that it truncates and refills. No
   allocation per `Scan` once warm.
 - C `char` is signed on darwin/arm64 and x86 and unsigned on linux/arm64. If a
@@ -458,7 +470,8 @@ Semantics:
   cursors are valid until the next `Parse`, `Reset` or `SetLanguage` on that
   parser. `Close` lets the parser reuse the memory earlier. graphify's
   `parseRoot` already closes the tree before it lets go of the parser, so
-  this costs it nothing. `Parse` may return a `*Tree` owned by the parser.
+  this costs it nothing. After that, the memory may belong to another
+  parser on another goroutine. `Parse` may return a `*Tree` owned by the parser.
 - `Parse` returns nil only when no language is set.
 - `ParseBudget` is `Parse` with a limit, and has no C counterpart. It also
   returns nil once `ts_parser__advance` ran more than `maxStall` times in a
@@ -508,12 +521,31 @@ The runtime agent owns the details. These are the constraints.
 - Children live in a slab too, addressed by offset. External scanner state
   (`ExternalScannerState`, 24 bytes inline or longer) lives in a byte slab.
 - Stack nodes, links, heads, the reduce-action and tree-pool arrays are slabs
-  or reused slices owned by the parser.
+  or reused slices owned by the parser, except that the stack node and link
+  slabs are given back at reset as below.
 - Slabs are reset, not freed, between parses. A warm parser allocates nothing
-  per file in the steady state, apart from growth. One exception: a reset
-  hands the subtree heap chunks beyond the first 8 to a `sync.Pool` that all
-  parsers share, so a pool of parsers holds what the inputs in flight need
-  and the GC frees the rest.
+  per file in the steady state, growth included while the free lists below
+  hold a slab. Exceptions, so that a pool
+  of parsers holds what the inputs in flight need and the GC frees the rest:
+  a reset hands subtree heap chunks beyond the first 8 to a `sync.Pool` that
+  all parsers share. Children, stack-node and stack-link slabs that a parse
+  outgrew, or that a reset gives up (above 64Ki, 16Ki and 4Ki entries, when
+  the parse before used under an eighth), go to free lists by power-of-two
+  class that all parsers share, held by weak pointers. A link slab a reset
+  gives up, up to 32 MiB, is also held strongly until 1024 parses of all
+  parsers end without a growth taking it, so that an outside GC does not
+  make the next deep input regrow it. A growth takes one of under 8 times
+  its need before it allocates, or, for a need above 4Ki links, the
+  smallest held link slab that fits. Stack links grow as
+  `append` does and the free bits move with the children slab, so a cold
+  parse allocates as it would with no free lists. A parser's first parse
+  grows children slabs below 64Ki entries by a plain copy and leaves the old
+  ones to the GC: tracking them moved the GCs of a cold parse. An outgrown
+  slab is listed only at reset, because a slice taken before the growth may
+  still read it.
+  uint32 index slabs above 1Mi entries are dropped for the GC by the same
+  rule. Slab free lists are not `sync.Pool`: its per-P slot hides a slab from
+  a goroutine that moved to another P.
 - No maps, no `fmt`, no interface or closure call per character or per parse
   action. The only indirect calls are `LexFn`/`KeywordLexFn` (per token) and
   `ExternalScanner` methods (per external scan, per serialize).

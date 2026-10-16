@@ -1195,3 +1195,19 @@ brace_start:
 
 	return false
 }
+
+// Reset: the state newScanner returns, with the heredoc slots kept.
+func (s *scanner) Reset() {
+	h := s.heredocs[:0]
+	// Give back what a huge input grew.
+	if cap(h) > 16 {
+		h = nil
+	}
+	for _, d := range h[:cap(h)] {
+		if cap(d.delimiter) > 1024 || cap(d.currentLeadingWord) > 1024 {
+			h = nil
+			break
+		}
+	}
+	*s = scanner{heredocs: h}
+}
