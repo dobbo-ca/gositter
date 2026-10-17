@@ -33,9 +33,9 @@ What this says about the earlier claims:
   247. The worst case is 1.16 times C. gositter finished 9 inputs that C did
   not (6 time limit, 2 memory cap, 1 segfault in C); the reverse never happened.
 - "Memory at or below C on the extreme inputs": refuted. gositter used less
-  peak RSS on 130 of 254 extreme inputs and more on 124, up to 3.51 times
-  (3.26 in the earlier run). On ordinary files at one thread gositter peak RSS is above C in 164 of 165
-  rows, median 1.42 times (1.93 in the earlier run).
+  peak RSS on 130 of 254 extreme inputs and more on 124, up to 3.51 times (3.26
+  in the earlier run). On ordinary files at one thread gositter peak RSS is
+  above C in 164 of 165 rows, median 1.42 times (1.93 in the earlier run).
 
 Trees are the same as C's: `oracle cmp` found 0 differing files in all 61
 lists (33,000 files), and node counts and a per-node checksum agree in all 244
@@ -129,27 +129,27 @@ lists, same C side within 2%). By set at one thread: 0.63 on real files (the
 What the memory fix costs: a caller that makes its own garbage (1 MB per file
 in the skeptic's driver) runs 1.5 to 3 times the GCs. The GC count follows the
 caller's allocation divided by the marked heap, and fix 5 keeps a smaller
-marked heap by holding the stack slab weakly (`r3-gc.md`). Measured by its
-skeptic (`r3-skeptic.md`): python broken +2.6% wall at one thread, +8.1% at 8
-and +10.6% at 16; cpp broken +1.2% to +2.3%. Holding the slab strongly brings
-the GC count back but puts golang broken one-thread cursor at +8.5% peak RSS
-(`r3-gc.md`). The owner took parity with C on memory over that speed loss.
-The parse and Child(i) walk rows add almost no garbage of their own (0.6 to 1.8
-KB per parse on broken files at one thread for ruby, javascript, bash and
-rust), so this cost is not in them. The TreeCursor rows do: the harness calls
-`Walk()` for every file, which allocates a new `TreeCursor` whose stack grows by
-append, 264 KB per parse for ruby, 257 for javascript, 172 for bash and 112 for
-rust on broken files at one thread (`go_alloc_bytes` per parse, this run). The
-fix 5 GC cost may therefore already show in the cursor rows (inference, not
-tested). `r3-gc.md` finds the cursor walk driving the GC phase in the golang
-broken cursor row.
+marked heap by holding the stack slab weakly (`bench/notes/r3-gc.md`). Measured
+by its skeptic (`bench/notes/r3-skeptic.md`): python broken +2.6% wall at one
+thread, +8.1% at 8 and +10.6% at 16; cpp broken +1.2% to +2.3%. Holding the
+slab strongly brings the GC count back but puts golang broken one-thread cursor
+at +8.5% peak RSS (`bench/notes/r3-gc.md`). The owner took parity with C on
+memory over that speed loss. The parse and Child(i) walk rows add almost no
+garbage of their own (0.6 to 1.8 KB per parse on broken files at one thread for
+ruby, javascript, bash and rust), so this cost is not in them. The TreeCursor
+rows do: the harness calls `Walk()` for every file, which allocates a new
+`TreeCursor` whose stack grows by append, 264 KB per parse for ruby, 257 for
+javascript, 172 for bash and 112 for rust on broken files at one thread
+(`go_alloc_bytes` per parse, this run). The fix 5 GC cost may therefore already
+show in the cursor rows (inference, not tested). `bench/notes/r3-gc.md` finds the cursor
+walk driving the GC phase in the golang broken cursor row.
 
 Not fixed or worse than the earlier run:
 
 - Peak RSS at one thread is still above C, 1.35 steady on real files. What
   stays is the Go runtime (3.4 to 3.7 MiB at start) and the lookup table built
   at first use (0.2 to 2.1 MiB in the five grammars measured), from
-  `mem-rootcause-budget.md`.
+  `bench/notes/mem-rootcause-budget.md`.
 - The Child(i) walk alone is still above C, 1.07.
 - TreeCursor walk alone is above the 0.80 target for ruby (0.94), php (0.88),
   scala (0.87), verilog (0.86), bash (0.82) and julia (0.81). python is 0.73.
@@ -185,10 +185,10 @@ Notes from the second pass:
   the earlier session, no result note was kept, and they were not rerun. It was
   not merged.
 - The Go-heap-only version of the memory fix (never drop slabs) gets close to
-  the one-thread numbers (`mem-prototype-bounded-retention.md`) but at 16
-  threads peak RSS is +20% on python real and +45% on cpp broken
-  (`mem-rootcause-budget.md`). It also keeps the huge children slabs that the
-  drop rule from commit 7b4d2a8 releases after a huge input.
+  the one-thread numbers (`bench/notes/mem-prototype-bounded-retention.md`) but
+  at 16 threads peak RSS is +20% on python real and +45% on cpp broken
+  (`bench/notes/mem-rootcause-budget.md`). It also keeps the huge children
+  slabs that the drop rule from commit 7b4d2a8 releases after a huge input.
 - `Node.Preorder` was 0.89 to 0.93 of the cycles of C's cursor walk in the
   earlier run. It was not measured in this run.
 - Cycle counts moved by up to 3% between byte-identical binaries in these
